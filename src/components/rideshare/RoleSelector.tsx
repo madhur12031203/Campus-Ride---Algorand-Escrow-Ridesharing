@@ -9,7 +9,7 @@ type RoleSelectorProps = {
 
 function DriverIcon() {
   return (
-    <svg className="h-6 w-6 text-sky-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-6 w-6 text-cyan-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -22,7 +22,7 @@ function DriverIcon() {
 
 function PassengerIcon() {
   return (
-    <svg className="h-6 w-6 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-6 w-6 text-emerald-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -35,39 +35,49 @@ function PassengerIcon() {
 
 export default function RoleSelector({ onPickRole, isSaving }: RoleSelectorProps) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-      <div className="mb-4 text-center">
-        <h3 className="text-lg font-semibold text-slate-950">Choose your role</h3>
-        <p className="mt-2 text-sm text-slate-600">Select the workflow for this session.</p>
+    <div className="cyber-glass rounded-2xl p-6 border border-white/10 shadow-2xl">
+      <div className="mb-6 text-center">
+        <span className="inline-block rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-emerald-400 mb-2">
+          Workflow Terminal
+        </span>
+        <h3 className="text-xl font-bold tracking-tight text-white">Select Your Session Role</h3>
+        <p className="mt-1 text-xs text-slate-400">Choose whether you are driving or requesting rides for this session.</p>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <button
           type="button"
           disabled={isSaving}
           onClick={() => void onPickRole("driver")}
-          className="group min-h-[168px] rounded-lg border border-sky-200 bg-white p-5 text-left shadow-sm transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="group relative rounded-xl border border-cyan-500/20 bg-slate-900/60 p-5 text-left transition-all hover:border-cyan-400/60 hover:bg-cyan-950/20 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <div className="mb-3">
+          <div className="mb-3 inline-grid h-12 w-12 place-items-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 shadow-[0_0_15px_rgba(6,182,212,0.15)]">
             <DriverIcon />
           </div>
-          <p className="text-lg font-semibold text-slate-950">Driver</p>
-          <p className="mt-1 text-sm text-slate-600">
-            Accept nearby passenger requests or publish your own route.
+          <div className="flex items-center justify-between">
+            <p className="text-base font-bold text-white group-hover:text-cyan-300 transition-colors">Campus Driver</p>
+            <span className="text-[10px] font-mono uppercase text-cyan-400 opacity-75">Earn ALGO</span>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">
+            Accept real-time ride requests within 8 km with guaranteed contract settlement.
           </p>
         </button>
+
         <button
           type="button"
           disabled={isSaving}
           onClick={() => void onPickRole("passenger")}
-          className="group min-h-[168px] rounded-lg border border-emerald-200 bg-white p-5 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="group relative rounded-xl border border-emerald-500/20 bg-slate-900/60 p-5 text-left transition-all hover:border-emerald-400/60 hover:bg-emerald-950/20 hover:shadow-[0_0_25px_rgba(16,185,129,0.15)] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <div className="mb-3">
+          <div className="mb-3 inline-grid h-12 w-12 place-items-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
             <PassengerIcon />
           </div>
-          <p className="text-lg font-semibold text-slate-950">Passenger</p>
-          <p className="mt-1 text-sm text-slate-600">
-            Request rides, book listed trips, and pay through escrow.
+          <div className="flex items-center justify-between">
+            <p className="text-base font-bold text-white group-hover:text-emerald-300 transition-colors">Campus Passenger</p>
+            <span className="text-[10px] font-mono uppercase text-emerald-400 opacity-75">Trust Escrow</span>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">
+            Book instant campus trips with payment safely locked until you confirm completion.
           </p>
         </button>
       </div>
