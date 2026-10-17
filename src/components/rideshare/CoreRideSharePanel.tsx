@@ -236,17 +236,18 @@ export default function CoreRideSharePanel({
 
   if (isProfileLoading) {
     return (
-      <section className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
-        <p className="text-sm text-slate-600">Loading your ride profile...</p>
+      <section className="cyber-glass rounded-2xl p-8 text-center border border-white/10">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent mb-3" />
+        <p className="text-xs font-mono text-slate-400">Synchronizing campus profile & Algorand state...</p>
       </section>
     );
   }
 
   if (!profile) {
     return (
-      <section className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center">
-        <p className="text-sm text-amber-800">
-          We could not load your account. Refresh the page or sign in again.
+      <section className="cyber-glass rounded-2xl p-6 text-center border border-amber-500/30 bg-amber-950/20">
+        <p className="text-sm font-semibold text-amber-300">
+          Account sync failed. Please refresh the page or re-authenticate.
         </p>
       </section>
     );
@@ -260,31 +261,62 @@ export default function CoreRideSharePanel({
     <section className="space-y-4">
       <ToastStack toasts={toasts} />
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
+        <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-xs text-rose-300">
+          ⚠️ {error}
         </div>
       )}
 
+      {/* Role switcher header */}
+      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <p className="text-xs font-mono uppercase tracking-wider text-slate-400">
+            Active Mode: <span className="font-bold text-white capitalize">{role}</span>
+          </p>
+        </div>
+        <div className="flex items-center rounded-xl bg-slate-900/80 p-1 border border-white/10">
+          <button
+            type="button"
+            disabled={isRoleSaving || role === "passenger"}
+            onClick={() => void handlePickRole("passenger")}
+            className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+              role === "passenger"
+                ? "bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)]"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Passenger
+          </button>
+          <button
+            type="button"
+            disabled={isRoleSaving || role === "driver"}
+            onClick={() => void handlePickRole("driver")}
+            className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+              role === "driver"
+                ? "bg-cyan-500 text-white shadow-[0_0_12px_rgba(6,182,212,0.4)]"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Driver
+          </button>
+        </div>
+      </div>
+
       {role === "passenger" ? (
-        <div className="space-y-6">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-xs font-semibold uppercase text-emerald-700">Passenger dashboard</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-950">Request a campus ride</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Add pickup and drop locations, then nearby drivers can accept your request.
-            </p>
-          </div>
+        <div className="space-y-5">
           <BookRideForm
             onBookRide={handleBookRide}
             isBusy={isBusy}
             hasActiveRide={passengerHasActiveRide}
-            activeRideMessage="You already have an active ride"
+            activeRideMessage="You currently have an active ride request."
             walletConnected={Boolean(walletAddress)}
           />
-          <p className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-800">
-            Payments are locked in an Algorand smart contract escrow and released
-            automatically after ride completion.
-          </p>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-2.5 text-xs text-emerald-300 flex items-center gap-2">
+            <span>🛡️</span>
+            <span>
+              All trip fares are held securely in an Algorand smart contract escrow and released only upon ride completion.
+            </span>
+          </div>
           <PassengerRideStatus
             passengerId={profile.id}
             isBusy={isBusy}
@@ -296,12 +328,12 @@ export default function CoreRideSharePanel({
           />
         </div>
       ) : (
-        <div className="space-y-6">
-          <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
-            <p className="text-xs font-semibold uppercase text-sky-700">Driver dashboard</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-950">Accept nearby requests</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Set your current location to see passenger bookings within 8 km.
+        <div className="space-y-5">
+          <div className="rounded-xl border border-cyan-500/25 bg-cyan-950/20 p-4">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-cyan-400">Driver Terminal</p>
+            <h3 className="mt-0.5 text-base font-bold text-white">Live Campus Ride Radar</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Broadcast your availability to detect passenger requests within an 8 km campus radius.
             </p>
           </div>
           <DriverRealtimeView

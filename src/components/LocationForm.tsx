@@ -167,20 +167,20 @@ export default function LocationForm({ onSubmit, isLoading = false }: LocationFo
                 onFocus={() => setActive("origin")}
                 onChange={(e) => setOrigin(e.target.value)}
                 placeholder="Pickup location"
-                className="min-w-0 flex-1 bg-transparent text-sm text-slate-950 placeholder-slate-400 outline-none"
+                className="min-w-0 flex-1 bg-transparent text-xs text-white placeholder-slate-500 outline-none"
                 disabled={isLoading}
                 autoComplete="off"
               />
             </div>
 
             {active === "origin" && originSug.length > 0 && (
-              <div className="absolute left-0 right-0 z-30 mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+              <div className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
                 {originSug.slice(0, 6).map((p) => (
                   <button
                     type="button"
                     key={p.placeId}
                     onClick={() => pickSuggestion(p.text)}
-                    className="block w-full truncate border-b border-slate-100 px-3 py-2.5 text-left text-sm text-slate-700 transition last:border-b-0 hover:bg-slate-50"
+                    className="block w-full truncate border-b border-white/5 px-3 py-2 text-left text-xs text-slate-200 transition last:border-b-0 hover:bg-emerald-500/10 hover:text-emerald-300"
                   >
                     {p.text}
                   </button>
@@ -189,12 +189,12 @@ export default function LocationForm({ onSubmit, isLoading = false }: LocationFo
             )}
           </div>
 
-          <div className="shrink-0 px-1" aria-hidden>
+          <div className="shrink-0 px-1 text-slate-500" aria-hidden>
             <ArrowRightIcon />
           </div>
 
           <div className="relative w-full flex-1">
-            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition focus-within:border-teal-400">
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2.5 transition focus-within:border-cyan-500/50 focus-within:shadow-[0_0_15px_rgba(6,182,212,0.15)]">
               <FlagIcon />
               <input
                 id="destination"
@@ -204,20 +204,20 @@ export default function LocationForm({ onSubmit, isLoading = false }: LocationFo
                 onFocus={() => setActive("destination")}
                 onChange={(e) => setDestination(e.target.value)}
                 placeholder="Drop location"
-                className="min-w-0 flex-1 bg-transparent text-sm text-slate-950 placeholder-slate-400 outline-none"
+                className="min-w-0 flex-1 bg-transparent text-xs text-white placeholder-slate-500 outline-none"
                 disabled={isLoading}
                 autoComplete="off"
               />
             </div>
 
             {active === "destination" && destSug.length > 0 && (
-              <div className="absolute left-0 right-0 z-30 mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+              <div className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
                 {destSug.slice(0, 6).map((p) => (
                   <button
                     type="button"
                     key={p.placeId}
                     onClick={() => pickSuggestion(p.text)}
-                    className="block w-full truncate border-b border-slate-100 px-3 py-2.5 text-left text-sm text-slate-700 transition last:border-b-0 hover:bg-slate-50"
+                    className="block w-full truncate border-b border-white/5 px-3 py-2 text-left text-xs text-slate-200 transition last:border-b-0 hover:bg-cyan-500/10 hover:text-cyan-300"
                   >
                     {p.text}
                   </button>
@@ -229,18 +229,18 @@ export default function LocationForm({ onSubmit, isLoading = false }: LocationFo
       </div>
 
       {active && suggestions.length === 0 && (active === "origin" ? origin.trim().length >= 3 : destination.trim().length >= 3) && (
-        <p className="mt-2 text-center text-xs text-slate-500">No suggestions found.</p>
+        <p className="mt-2 text-center text-xs text-slate-500 font-mono">No matching locations found.</p>
       )}
 
-      {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-center text-xs text-rose-400 font-mono">⚠️ {error}</p>}
 
-      <div className="mt-4 flex justify-center">
+      <div className="mt-3 flex justify-center">
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full rounded-lg bg-teal-600 px-7 py-2.5 font-semibold text-white shadow-sm transition hover:bg-teal-700 disabled:opacity-50"
+          className="cyber-button w-full rounded-xl py-2.5 text-xs font-bold text-white transition disabled:opacity-40"
         >
-          {isLoading ? "Comparing..." : "Compare Prices"}
+          {isLoading ? "Querying Network..." : "⚡ Compare Campus Fares"}
         </button>
       </div>
     </form>

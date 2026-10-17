@@ -46,38 +46,46 @@ export default function LoginPage() {
   return (
     <main className="relative isolate flex min-h-screen flex-col items-center justify-center px-6">
       <VideoBackground />
-      <div className="relative z-10 w-full max-w-3xl rounded-lg border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur sm:p-8">
-        <div className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-lg border border-teal-400/25 bg-teal-400/10 text-sm font-black text-teal-200">
+      <div className="cyber-glass relative z-10 w-full max-w-2xl rounded-3xl p-8 border border-white/10 shadow-2xl backdrop-blur-2xl sm:p-10">
+        <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-black text-xl shadow-[0_0_25px_rgba(16,185,129,0.25)]">
           CR
         </div>
-        <h1 className="text-center text-3xl font-semibold text-slate-100">Campus Ride</h1>
-        <p className="mt-2 text-center text-sm text-slate-400">
-          Choose your workflow to continue.
+        <h1 className="text-center text-3xl font-black tracking-tight text-white sm:text-4xl">
+          Campus<span className="text-emerald-400">Ride</span>
+        </h1>
+        <p className="mt-2 text-center text-xs text-slate-400 font-mono">
+          Decentralized Campus Ridesharing &bull; Algorand Smart Escrow
         </p>
 
         {error && (
-          <div className="mt-6 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-            {error}
+          <div className="mt-6 rounded-xl border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-xs text-rose-300">
+            ⚠️ {error}
           </div>
         )}
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <Link
             href="/login/driver"
-            className="min-h-[138px] rounded-lg border border-cyan-500/25 bg-cyan-500/10 p-5 transition hover:border-cyan-300/50 hover:bg-cyan-500/15"
+            className="group rounded-2xl border border-cyan-500/20 bg-slate-900/60 p-6 transition-all hover:border-cyan-400/60 hover:bg-cyan-950/20 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)]"
           >
-            <p className="text-lg font-semibold text-cyan-100">Login as Driver</p>
-            <p className="mt-1 text-sm text-cyan-200/80">
-              Accept nearby passenger requests or publish your own route.
+            <div className="mb-3 inline-grid h-10 w-10 place-items-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+              🚘
+            </div>
+            <p className="text-base font-bold text-white group-hover:text-cyan-300 transition-colors">Campus Driver</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+              Accept requests, coordinate rides, and earn ALGO with instant automated settlement.
             </p>
           </Link>
           <Link
             href="/login/passenger"
-            className="min-h-[138px] rounded-lg border border-teal-500/25 bg-teal-500/10 p-5 transition hover:border-teal-300/50 hover:bg-teal-500/15"
+            className="group rounded-2xl border border-emerald-500/20 bg-slate-900/60 p-6 transition-all hover:border-emerald-400/60 hover:bg-emerald-950/20 hover:shadow-[0_0_25px_rgba(16,185,129,0.15)]"
           >
-            <p className="text-lg font-semibold text-emerald-100">Login as Passenger</p>
-            <p className="mt-1 text-sm text-emerald-200/80">
-              Request rides, book listed trips, and pay through escrow.
+            <div className="mb-3 inline-grid h-10 w-10 place-items-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+              🎒
+            </div>
+            <p className="text-base font-bold text-white group-hover:text-emerald-300 transition-colors">Campus Passenger</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+              Book campus rides safely. Payment remains securely in escrow until ride drop-off.
             </p>
           </Link>
         </div>

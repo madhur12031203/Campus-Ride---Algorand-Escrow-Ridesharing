@@ -31,11 +31,12 @@ function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
 
 function AppLoadingState({ label }: { label: string }) {
   return (
-    <main className="relative isolate min-h-screen text-slate-950">
+    <main className="relative isolate min-h-screen text-slate-100 flex items-center justify-center">
       <VideoBackground />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-        <div className="w-full rounded-lg border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/80">
-          <p className="text-sm text-slate-600">{label}</p>
+      <div className="relative z-10 mx-auto max-w-md px-6 text-center">
+        <div className="cyber-glass rounded-2xl p-8 border border-white/10 shadow-2xl">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent mb-4" />
+          <p className="font-mono text-xs text-slate-300">{label}</p>
         </div>
       </div>
     </main>
@@ -52,6 +53,7 @@ export default function Home() {
   const [isSignedIn, setIsSignedIn] = useState(false);
 
   const appAddress = process.env.NEXT_PUBLIC_RIDE_ESCROW_APP_ADDRESS ?? "";
+  const appId = process.env.NEXT_PUBLIC_RIDE_ESCROW_APP_ID ?? "755776791";
 
   useEffect(() => {
     try {
@@ -129,62 +131,74 @@ export default function Home() {
   }
 
   if (isAuthLoading) {
-    return <AppLoadingState label="Loading your campus ride dashboard..." />;
+    return <AppLoadingState label="Synchronizing Campus Ride network & wallet state..." />;
   }
 
   if (!isSignedIn) {
-    return <AppLoadingState label="Redirecting to login..." />;
+    return <AppLoadingState label="Redirecting to secure login..." />;
   }
 
   return (
-    <main className="relative isolate min-h-screen text-slate-950">
+    <main className="relative isolate min-h-screen text-slate-100">
       <VideoBackground />
       <ChatWidget />
 
-      <div className="relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
-        <header className="mb-5 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg border border-teal-200 bg-teal-50 text-sm font-black text-teal-700">
-              CR
+      <div className="relative z-10 mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        {/* Futuristic Cyber Navigation Header */}
+        <header className="mb-6 flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="relative grid h-12 w-12 place-items-center rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+              <span className="text-base font-black tracking-wider">CR</span>
+              <span className="absolute -bottom-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+              </span>
             </div>
             <div>
-              <h1 className="text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl">
-                Campus Ride
-              </h1>
-              <p className="mt-0.5 text-sm text-slate-600">
-                Verified campus rides with wallet-backed escrow.
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                  Campus<span className="text-emerald-400">Ride</span>
+                </h1>
+                <span className="rounded-full bg-slate-800/80 border border-white/10 px-2 py-0.5 text-[9px] font-mono uppercase text-slate-400">
+                  v2.0 Escrow
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-400">
+                P2P campus mobility with cryptographically secured smart contract escrow.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 overflow-hidden rounded-lg border border-slate-200 bg-white text-center shadow-sm">
-            <div className="px-3 py-2">
-              <p className="text-[11px] uppercase text-slate-500">Network</p>
-              <p className="text-sm font-semibold text-teal-700">Testnet</p>
+          {/* Network & Escrow Status Badges */}
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <div className="cyber-glass rounded-xl px-3 py-2 border border-white/10 text-center">
+              <p className="text-[9px] font-mono uppercase text-slate-500">Chain</p>
+              <p className="text-xs font-mono font-bold text-teal-300">Algorand</p>
             </div>
-            <div className="border-x border-slate-200 px-3 py-2">
-              <p className="text-[11px] uppercase text-slate-500">Escrow</p>
-              <p className="text-sm font-semibold text-emerald-700">
-                {appAddress ? "Ready" : "Setup"}
-              </p>
+            <div className="cyber-glass rounded-xl px-3 py-2 border border-white/10 text-center">
+              <p className="text-[9px] font-mono uppercase text-slate-500">Contract ID</p>
+              <p className="text-xs font-mono font-bold text-emerald-400">#{appId}</p>
             </div>
-            <div className="px-3 py-2">
-              <p className="text-[11px] uppercase text-slate-500">Wallet</p>
-              <p className="text-sm font-semibold text-cyan-700">
-                {walletAddress ? "Live" : "Needed"}
+            <div className="cyber-glass rounded-xl px-3 py-2 border border-white/10 text-center">
+              <p className="text-[9px] font-mono uppercase text-slate-500">Settlement</p>
+              <p className="text-xs font-mono font-bold text-cyan-300">
+                {appAddress ? "Immutable" : "Active"}
               </p>
             </div>
           </div>
         </header>
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)]">
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70">
-            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        {/* Main Grid: Core Panel + Aside Tools */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(330px,0.9fr)]">
+          <section className="cyber-glass rounded-2xl p-5 border border-white/10 shadow-2xl">
+            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between border-b border-white/5 pb-3">
               <div>
-                <p className="text-xs font-semibold uppercase text-teal-700">Realtime dispatch</p>
-                <h2 className="text-xl font-semibold text-slate-950">Your dashboard</h2>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-emerald-400">Realtime Dispatch Terminal</p>
+                <h2 className="text-lg font-bold text-white">Campus Rideshare Dashboard</h2>
               </div>
-              <p className="text-sm text-slate-600">Wallet required before booking or accepting.</p>
+              <p className="text-[11px] text-slate-400 font-mono">
+                {walletAddress ? "● Wallet Linked" : "⚠️ Connect Wallet to Transact"}
+              </p>
             </div>
             <CoreRideSharePanel walletAddress={walletAddress} appAddress={appAddress} />
           </section>
@@ -192,10 +206,10 @@ export default function Home() {
           <aside className="space-y-5">
             <WalletPanel onAddressChange={setWalletAddress} />
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-4">
-                <p className="text-xs font-semibold uppercase text-slate-500">Fare tools</p>
-                <h2 className="text-lg font-semibold text-slate-950">Compare fares</h2>
+            <section className="cyber-glass rounded-2xl p-4 border border-white/10 shadow-xl">
+              <div className="mb-3">
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-cyan-400">Campus Fare Intelligence</p>
+                <h3 className="text-sm font-bold text-white">Compare Multi-Platform Prices</h3>
               </div>
               <LocationForm onSubmit={handleCompare} isLoading={isLoading} />
             </section>
@@ -203,7 +217,7 @@ export default function Home() {
             {bestDeal && <BestDealCard result={bestDeal} />}
 
             {results.length > 0 && (
-              <div className="grid gap-3">
+              <div className="grid gap-2.5">
                 {results.map((result) => (
                   <ResultCard
                     key={result.provider}
@@ -217,9 +231,9 @@ export default function Home() {
             )}
 
             {results.length === 0 && !isLoading && (
-              <div className="rounded-lg border border-dashed border-slate-300 bg-white/70 p-4 text-center">
-                <p className="text-sm text-slate-600">
-                  Enter pickup and drop locations to compare prices.
+              <div className="cyber-glass rounded-2xl p-4 text-center border border-dashed border-white/10">
+                <p className="text-xs text-slate-400">
+                  Select pickup and drop destinations to calculate optimal campus rates.
                 </p>
               </div>
             )}
