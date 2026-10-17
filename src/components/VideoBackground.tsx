@@ -1,18 +1,26 @@
 export default function VideoBackground() {
   return (
-    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[#f7f9fc]">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(239,246,255,0.96),rgba(248,250,252,0.98)_48%,rgba(236,253,245,0.9))]" />
-        <div 
-          className="absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(15,23,42,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.06) 1px, transparent 1px)",
-            backgroundSize: "44px 44px",
-          }}
-        />
-        <div className="absolute inset-x-0 top-0 h-px bg-slate-200" />
-      </div>
+    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none">
+      {/* Deep Obsidian Base */}
+      <div className="absolute inset-0 bg-[#080c14]" />
+
+      {/* Cyberpunk / Web3 Ambient Glowing Orbs */}
+      <div className="absolute -top-[25%] -left-[10%] h-[600px] w-[600px] rounded-full bg-emerald-500/10 blur-[140px]" />
+      <div className="absolute top-[20%] -right-[15%] h-[650px] w-[650px] rounded-full bg-cyan-500/10 blur-[150px]" />
+      <div className="absolute -bottom-[20%] left-[20%] h-[700px] w-[700px] rounded-full bg-teal-500/8 blur-[160px]" />
+
+      {/* Futuristic Dot / Coordinate Grid */}
+      <div
+        className="absolute inset-0 opacity-[0.18]"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px)",
+          backgroundSize: "28px 28px",
+        }}
+      />
+
+      {/* Subtle Top Border Glow */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
     </div>
   );
 }
