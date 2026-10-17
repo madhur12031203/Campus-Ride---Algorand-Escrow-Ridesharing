@@ -5,43 +5,41 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import VideoBackground from "@/components/VideoBackground";
 import { createClient } from "@/lib/supabase/client";
-
-const AUTH_CHECK_TIMEOUT_MS = 6000;
-
-function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timeoutId = window.setTimeout(() => reject(new Error(message)), AUTH_CHECK_TIMEOUT_MS);
-
-    promise
-      .then(resolve)
-      .catch(reject)
-      .finally(() => window.clearTimeout(timeoutId));
-  });
-}
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createDemoSession, getDemoUser } from "@/lib/auth/demoAuth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [supabaseReady, setSupabaseReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const supabase = createClient();
-      void withTimeout(
-        supabase.auth.getUser(),
-        "Login check timed out. Check your internet connection and Supabase settings."
-      )
-        .then(({ data }) => {
-          if (data.user) {
+    const demoUser = getDemoUser();
+    if (demoUser) {
+      router.replace("/");
+      return;
+    }
+
+    const hasSupabase = isSupabaseConfigured();
+    setSupabaseReady(hasSupabase);
+
+    if (hasSupabase) {
+      try {
+        const supabase = createClient();
+        void supabase.auth.getUser().then(({ data }) => {
+          if (data?.user) {
             router.replace("/");
           }
-        })
-        .catch((err: unknown) => {
-          setError(err instanceof Error ? err.message : "Unable to check login status.");
-        });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unable to check login status.");
+        }).catch(() => undefined);
+      } catch {
+        // Safe fallback
+      }
     }
   }, [router]);
+
+  function handleQuickDemo(role: "driver" | "passenger") {
+    createDemoSession(role);
+    window.location.href = "/";
+  }
 
   return (
     <main className="relative isolate flex min-h-screen flex-col items-center justify-center px-6">
@@ -57,11 +55,19 @@ export default function LoginPage() {
           Decentralized Campus Ridesharing &bull; Algorand Smart Escrow
         </p>
 
-        {error && (
-          <div className="mt-6 rounded-xl border border-rose-500/30 bg-rose-950/20 px-4 py-3 text-xs text-rose-300">
-            ⚠️ {error}
-          </div>
-        )}
+        <div className="mt-4 flex items-center justify-center">
+          {supabaseReady ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/40 px-3 py-1 font-mono text-[11px] text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Supabase Auth Connected
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-950/40 px-3 py-1 font-mono text-[11px] text-amber-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              Instant Demo Access Ready &bull; .env.local optional
+            </span>
+          )}
+        </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <Link
@@ -88,6 +94,28 @@ export default function LoginPage() {
               Book campus rides safely. Payment remains securely in escrow until ride drop-off.
             </p>
           </Link>
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-white/5 bg-slate-950/50 p-4">
+          <p className="text-center font-mono text-[11px] uppercase tracking-wider text-slate-400 mb-3">
+            Quick 1-Click Access (Bypass Login)
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => handleQuickDemo("driver")}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-950/30 px-3 py-2.5 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-900/40 hover:border-cyan-400"
+            >
+              <span>⚡</span> Demo Driver Access
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickDemo("passenger")}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 px-3 py-2.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-900/40 hover:border-emerald-400"
+            >
+              <span>⚡</span> Demo Passenger Access
+            </button>
+          </div>
         </div>
       </div>
     </main>

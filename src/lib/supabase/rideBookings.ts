@@ -6,7 +6,9 @@
 import { createClient } from "@/lib/supabase/client";
 import type { RideBookingRow } from "@/types";
 
-const supabase = createClient();
+function getSupabase() {
+  return createClient();
+}
 const ACTIVE_RIDE_STATUSES: RideBookingRow["status"][] = ["waiting", "accepted"];
 
 /** Earth radius in km for Haversine formula */
@@ -56,7 +58,7 @@ export async function createRideBooking(input: {
     throw new Error("You already have an active ride");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .insert({
       passenger_id: input.passengerId,
@@ -98,7 +100,7 @@ export async function acceptRide(
     throw new Error("Finish your current ride first");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .update({
       status: "accepted",
@@ -137,7 +139,8 @@ export function subscribeToRideBookings(
   onInsert: (ride: RideBookingRow) => void,
   onUpdate?: (ride: RideBookingRow) => void
 ): () => void {
-  const channel = supabase
+  const client = getSupabase();
+  const channel = client
     .channel("ride_bookings_realtime")
     .on(
       "postgres_changes",
@@ -172,7 +175,7 @@ export function subscribeToRideBookings(
     .subscribe();
 
   return () => {
-    supabase.removeChannel(channel);
+    client.removeChannel(channel);
   };
 }
 
@@ -184,7 +187,8 @@ export function subscribeToMyRideBookings(
   passengerId: string,
   onUpdate: (ride: RideBookingRow) => void
 ): () => void {
-  const channel = supabase
+  const client = getSupabase();
+  const channel = client
     .channel("my_ride_bookings_realtime")
     .on(
       "postgres_changes",
@@ -215,7 +219,7 @@ export function subscribeToMyRideBookings(
     .subscribe();
 
   return () => {
-    supabase.removeChannel(channel);
+    client.removeChannel(channel);
   };
 }
 
@@ -224,7 +228,7 @@ export function subscribeToMyRideBookings(
  * Realtime handles new inserts; this loads existing waiting rides.
  */
 export async function fetchWaitingRideBookings(): Promise<RideBookingRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .select("*")
     .eq("status", "waiting")
@@ -238,7 +242,7 @@ export async function fetchWaitingRideBookings(): Promise<RideBookingRow[]> {
  * Passenger: Fetch their own ride bookings (to see status updates).
  */
 export async function fetchMyRideBookings(passengerId: string): Promise<RideBookingRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .select("*")
     .eq("passenger_id", passengerId)
@@ -249,7 +253,7 @@ export async function fetchMyRideBookings(passengerId: string): Promise<RideBook
 }
 
 export async function passengerHasActiveRide(passengerId: string): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .select("id")
     .eq("passenger_id", passengerId)
@@ -261,7 +265,7 @@ export async function passengerHasActiveRide(passengerId: string): Promise<boole
 }
 
 export async function driverHasActiveRide(driverId: string): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .select("id")
     .eq("driver_id", driverId)
@@ -275,7 +279,7 @@ export async function driverHasActiveRide(driverId: string): Promise<boolean> {
 export async function fetchPassengerActiveRide(
   passengerId: string
 ): Promise<RideBookingRow | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .select("*")
     .eq("passenger_id", passengerId)
@@ -289,7 +293,7 @@ export async function fetchPassengerActiveRide(
 }
 
 export async function fetchDriverActiveRide(driverId: string): Promise<RideBookingRow | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .select("*")
     .eq("driver_id", driverId)
@@ -305,7 +309,7 @@ export async function fetchDriverActiveRide(driverId: string): Promise<RideBooki
 export async function fetchPassengerRideHistory(
   passengerId: string
 ): Promise<RideBookingRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .select("*")
     .eq("passenger_id", passengerId)
@@ -317,7 +321,7 @@ export async function fetchPassengerRideHistory(
 }
 
 export async function fetchDriverRideHistory(driverId: string): Promise<RideBookingRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .select("*")
     .eq("driver_id", driverId)
@@ -332,7 +336,7 @@ export async function markDriverCompleted(
   rideId: string,
   driverId: string
 ): Promise<{ ride: RideBookingRow; shouldReleasePayment: boolean }> {
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await getSupabase()
     .from("ride_bookings")
     .update({ driver_completed: true })
     .eq("id", rideId)
@@ -355,7 +359,7 @@ export async function markPassengerCompleted(
   rideId: string,
   passengerId: string
 ): Promise<{ ride: RideBookingRow; shouldReleasePayment: boolean }> {
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await getSupabase()
     .from("ride_bookings")
     .update({ passenger_completed: true })
     .eq("id", rideId)
@@ -381,7 +385,7 @@ async function maybeFinalizeRideCompletion(
     return { ride, shouldReleasePayment: false };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .update({ status: "completed" })
     .eq("id", ride.id)
@@ -408,7 +412,7 @@ export async function markEscrowLocked(
   passengerId: string,
   lockTxnId: string
 ): Promise<RideBookingRow> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .update({
       escrow_state: "locked",
@@ -428,7 +432,7 @@ export async function markEscrowReleased(
   rideId: string,
   releaseTxnId: string
 ): Promise<RideBookingRow> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("ride_bookings")
     .update({
       escrow_state: "released",

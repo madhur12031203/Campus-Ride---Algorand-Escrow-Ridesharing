@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createDemoSession, getDemoUser } from "@/lib/auth/demoAuth";
 import { useRouter } from "next/navigation";
 
 type AuthFormProps = {
@@ -34,12 +36,27 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConfigured, setIsConfigured] = useState(true);
+
+  useEffect(() => {
+    const demoUser = getDemoUser();
+    if (demoUser) {
+      router.replace("/");
+      return;
+    }
+    setIsConfigured(isSupabaseConfigured());
+  }, [router]);
 
   function getErrorMessage(err: unknown, fallback: string): string {
     if (!(err instanceof Error)) return fallback;
 
-    if (err.message.toLowerCase().includes("failed to fetch")) {
-      return "Could not reach Supabase. Check that NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are set correctly in Vercel, then redeploy.";
+    const lower = err.message.toLowerCase();
+    if (lower.includes("invalid login credentials")) {
+      return "Invalid email or password. If you haven't created an account yet, switch to 'Sign Up' above.";
+    }
+
+    if (lower.includes("failed to fetch") || lower.includes("placeholder")) {
+      return "Could not reach Supabase backend. Use 'Instant Demo Login' below or configure .env.local.";
     }
 
     return err.message;
@@ -51,12 +68,24 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
     return window.location.origin;
   }
 
+  function handleInstantDemo() {
+    createDemoSession(role, email || undefined, name || undefined);
+    window.location.href = "/";
+  }
+
   async function handleEmailAuth(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
+      if (!isSupabaseConfigured()) {
+        // Fallback to instant local demo session if Supabase is not configured
+        createDemoSession(role, email, isSignUp ? name : undefined);
+        window.location.href = "/";
+        return;
+      }
+
       const supabase = createClient();
       const baseUrl = getAuthBaseUrl();
       const redirectTo = `${baseUrl}/auth/callback?role=${role}`;
@@ -85,7 +114,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
         });
 
         if (signInError) throw signInError;
-        router.push(redirectTo);
+        window.location.href = redirectTo;
       } else {
         // Sign in
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -94,7 +123,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
         });
 
         if (signInError) throw signInError;
-        router.push(redirectTo);
+        window.location.href = redirectTo;
       }
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Authentication failed. Please try again."));
@@ -105,6 +134,11 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
 
   async function handleGoogleAuth() {
     setError(null);
+
+    if (!isSupabaseConfigured()) {
+      handleInstantDemo();
+      return;
+    }
 
     try {
       const supabase = createClient();
@@ -259,10 +293,24 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
         </button>
       </form>
 
+      {/* Quick Demo Access Button */}
+      <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3.5 text-center">
+        <p className="text-[11px] text-slate-300 font-mono mb-2">
+          Want to test immediately without typing passwords?
+        </p>
+        <button
+          type="button"
+          onClick={handleInstantDemo}
+          className="w-full rounded-lg border border-emerald-500/40 bg-emerald-500/15 py-2.5 text-xs font-bold text-emerald-300 transition hover:bg-emerald-500/25 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+        >
+          ⚡ Instant 1-Click Demo Login ({role === "driver" ? "Campus Driver" : "Campus Passenger"})
+        </button>
+      </div>
+
       {/* Divider */}
       <div className="my-6 flex items-center gap-3">
         <div className="h-px flex-1 bg-slate-700" />
-        <span className="text-xs text-slate-500">OR</span>
+        <span className="text-xs text-slate-500">OR CONTINUE WITH GOOGLE</span>
         <div className="h-px flex-1 bg-slate-700" />
       </div>
 

@@ -10,6 +10,7 @@ import VideoBackground from "@/components/VideoBackground";
 import WalletPanel from "@/components/WalletPanel";
 import CoreRideSharePanel from "@/components/rideshare/CoreRideSharePanel";
 import { createClient } from "@/lib/supabase/client";
+import { getDemoUser } from "@/lib/auth/demoAuth";
 import type { FareResult, LocationInput } from "@/types";
 
 type CompareApiResponse = {
@@ -56,6 +57,13 @@ export default function Home() {
   const appId = process.env.NEXT_PUBLIC_RIDE_ESCROW_APP_ID ?? "755776791";
 
   useEffect(() => {
+    const demoUser = getDemoUser();
+    if (demoUser) {
+      setIsSignedIn(true);
+      setIsAuthLoading(false);
+      return;
+    }
+
     try {
       const supabase = createClient();
 

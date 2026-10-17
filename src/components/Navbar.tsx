@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { clearDemoUser, getDemoUser } from "@/lib/auth/demoAuth";
 
 type User = {
   email?: string;
@@ -29,42 +30,56 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    const supabase = createClient();
-
-    void supabase.auth.getUser().then(async ({ data }) => {
-      setUser(data.user ?? null);
-      if (data.user) {
-        try {
-          const res = await fetch("/api/admin/verify");
-          const json = await res.json();
-          setIsAdmin(json.isAdmin === true);
-        } catch {
-          setIsAdmin(false);
-        }
-      } else {
-        setIsAdmin(false);
-      }
+    const demoUser = getDemoUser();
+    if (demoUser) {
+      setUser({
+        email: demoUser.email,
+        user_metadata: { full_name: demoUser.name },
+      });
       setIsLoading(false);
-    });
+      return;
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        try {
-          const res = await fetch("/api/admin/verify");
-          const json = await res.json();
-          setIsAdmin(json.isAdmin === true);
-        } catch {
+    try {
+      const supabase = createClient();
+
+      void supabase.auth.getUser().then(async ({ data }) => {
+        setUser(data.user ?? null);
+        if (data.user) {
+          try {
+            const res = await fetch("/api/admin/verify");
+            const json = await res.json();
+            setIsAdmin(json.isAdmin === true);
+          } catch {
+            setIsAdmin(false);
+          }
+        } else {
           setIsAdmin(false);
         }
-      } else {
-        setIsAdmin(false);
-      }
-    });
+        setIsLoading(false);
+      });
 
-    return () => subscription.unsubscribe();
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          try {
+            const res = await fetch("/api/admin/verify");
+            const json = await res.json();
+            setIsAdmin(json.isAdmin === true);
+          } catch {
+            setIsAdmin(false);
+          }
+        } else {
+          setIsAdmin(false);
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    } catch {
+      setIsLoading(false);
+    }
   }, []);
 
   const getInitial = () => {
@@ -76,9 +91,14 @@ export default function Navbar() {
   };
 
   async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
+    clearDemoUser();
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut().catch(() => undefined);
+    } catch {
+      // ignore
+    }
+    window.location.href = "/login";
   }
 
   return (
