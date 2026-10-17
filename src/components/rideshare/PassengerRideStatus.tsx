@@ -22,16 +22,35 @@ type PassengerRideStatusProps = {
 const ACTIVE_STATUSES: RideBookingRow["status"][] = ["waiting", "accepted"];
 
 function StatusBadge({ status }: { status: RideBookingRow["status"] }) {
-  const colors = {
-    waiting: "bg-amber-100 text-amber-800",
-    accepted: "bg-emerald-100 text-emerald-800",
-    completed: "bg-blue-100 text-blue-800",
-    cancelled: "bg-rose-100 text-rose-800",
+  const configs = {
+    waiting: {
+      bg: "bg-amber-500/10 border-amber-500/30 text-amber-300",
+      dot: "bg-amber-400 animate-pulse",
+      label: "Waiting for Driver",
+    },
+    accepted: {
+      bg: "bg-cyan-500/10 border-cyan-500/30 text-cyan-300",
+      dot: "bg-cyan-400 animate-pulse",
+      label: "Driver Assigned",
+    },
+    completed: {
+      bg: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
+      dot: "bg-emerald-400",
+      label: "Completed",
+    },
+    cancelled: {
+      bg: "bg-rose-500/10 border-rose-500/30 text-rose-300",
+      dot: "bg-rose-400",
+      label: "Cancelled",
+    },
   };
 
+  const current = configs[status] ?? configs.waiting;
+
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status]}`}>
-      {status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ")}
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-mono font-medium ${current.bg}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${current.dot}`} />
+      {current.label}
     </span>
   );
 }
@@ -129,8 +148,8 @@ export default function PassengerRideStatus({
 
   if (error) {
     return (
-      <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-        {error}
+      <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-xs text-rose-300">
+        ⚠️ {error}
       </div>
     );
   }
@@ -141,79 +160,91 @@ export default function PassengerRideStatus({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-slate-800">
-        {activeRide ? "Current Active Ride" : "Ride History"}
+      <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-slate-400">
+        {activeRide ? "⚡ Live Trip Terminal" : "📜 Ride History"}
       </h3>
       {paymentMessage && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
-          {paymentMessage}
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-2.5 text-xs text-emerald-300">
+          ✨ {paymentMessage}
         </div>
       )}
       {activeRide ? (
-        <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
+        <article className="cyber-glass rounded-2xl p-5 border border-white/10 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 h-28 w-28 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="mb-4 flex items-center justify-between">
             <StatusBadge status={activeRide.status} />
-            <span className="text-xs text-slate-500">
-              {new Date(activeRide.created_at).toLocaleString()}
+            <span className="font-mono text-[11px] text-slate-400">
+              {new Date(activeRide.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>
-          <div className="space-y-2 text-sm">
-            <p className="text-slate-800">
-              <span className="text-slate-500">Pickup:</span>{" "}
-              {activeRide.pickup_place_name || "Pickup location"}
-            </p>
-            <p className="text-slate-800">
-              <span className="text-slate-500">Destination:</span>{" "}
-              {activeRide.destination_place_name || "Destination location"}
-            </p>
+
+          <div className="space-y-3 rounded-xl bg-slate-900/60 p-3.5 border border-white/5 text-xs">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 grid h-4 w-4 place-items-center rounded-full bg-emerald-500/20 text-[10px] text-emerald-400">●</span>
+              <div>
+                <p className="text-[10px] font-mono text-slate-400 uppercase">Pickup Location</p>
+                <p className="font-medium text-white">{activeRide.pickup_place_name || "Pickup location"}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5 border-t border-white/5 pt-2">
+              <span className="mt-0.5 grid h-4 w-4 place-items-center rounded-full bg-cyan-500/20 text-[10px] text-cyan-400">■</span>
+              <div>
+                <p className="text-[10px] font-mono text-slate-400 uppercase">Destination</p>
+                <p className="font-medium text-white">{activeRide.destination_place_name || "Destination location"}</p>
+              </div>
+            </div>
           </div>
-          <p className="mt-2 text-xs text-slate-600">
-            {activeRide.escrow_state === "locked"
-              ? "Funds locked on Algorand"
-              : activeRide.escrow_state === "released"
-                ? "Payment released on completion"
-                : "Escrow will lock as soon as driver accepts your ride"}
-          </p>
+
+          <div className="mt-3 flex items-center justify-between text-xs font-mono">
+            <span className="text-slate-400">Smart Escrow State:</span>
+            <span className="font-semibold text-emerald-400">
+              {activeRide.escrow_state === "locked"
+                ? "🔒 Locked in Contract"
+                : activeRide.escrow_state === "released"
+                  ? "💸 Released to Driver"
+                  : "⏳ Pending Driver Lock"}
+            </span>
+          </div>
+
           {activeRide.status === "accepted" && !activeRide.passenger_completed && (
-              <button
-                type="button"
-                onClick={() => void onCompleteRide(activeRide)}
-                disabled={isBusy}
-                className="mt-3 w-full rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Complete Ride
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => void onCompleteRide(activeRide)}
+              disabled={isBusy}
+              className="cyber-button mt-4 w-full rounded-xl py-3 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              ✅ Confirm Drop & Release Escrow
+            </button>
+          )}
           {activeRide.status === "accepted" &&
             activeRide.escrow_state === "pending_lock" &&
             (!walletAddress || walletAddress !== activeRide.passenger_wallet) && (
-              <p className="mt-2 text-xs text-amber-700">
-                Connect the passenger wallet used for booking to lock escrow.
+              <p className="mt-2.5 text-xs text-amber-300 font-mono">
+                Connect the passenger wallet ({activeRide.passenger_wallet ? `${activeRide.passenger_wallet.slice(0, 6)}...` : "needed"}) to lock escrow.
               </p>
             )}
           {activeRide.status === "accepted" &&
             activeRide.passenger_completed &&
             !activeRide.driver_completed && (
-              <p className="mt-3 text-xs text-amber-700">
-                Waiting for driver confirmation to finish ride and release payment.
+              <p className="mt-3 text-xs text-cyan-300 font-mono">
+                ⏳ You confirmed drop-off. Awaiting driver confirmation to complete settlement.
               </p>
             )}
         </article>
       ) : (
-        historyRides.map((ride) => (
+        historyRides.slice(0, 5).map((ride) => (
           <article
             key={ride.id}
-            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            className="cyber-glass rounded-xl p-3.5 border border-white/5 transition hover:border-white/10"
           >
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-1.5 flex items-center justify-between">
               <StatusBadge status={ride.status} />
-              <span className="text-xs text-slate-500">
-                {new Date(ride.created_at).toLocaleString()}
+              <span className="font-mono text-[10px] text-slate-400">
+                {new Date(ride.created_at).toLocaleDateString()}
               </span>
             </div>
-            <p className="text-sm text-slate-800">
-              {ride.pickup_place_name || "Pickup location"} to{" "}
-              {ride.destination_place_name || "Destination location"}
+            <p className="text-xs text-slate-300 font-medium">
+              {ride.pickup_place_name || "Pickup"} → {ride.destination_place_name || "Drop"}
             </p>
           </article>
         ))

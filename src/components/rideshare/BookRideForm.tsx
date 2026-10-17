@@ -363,36 +363,38 @@ export default function BookRideForm({
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-2 border-b border-white/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-950">Book a ride</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Choose verified locations, then publish the request to nearby drivers.
+          <h2 className="text-base font-bold text-white">Request Campus Escrow Ride</h2>
+          <p className="mt-0.5 text-xs text-slate-400">
+            Specify verified campus locations. Funds lock in Algorand escrow once accepted.
           </p>
         </div>
-        <span className="w-fit rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
-          Live matching
+        <span className="w-fit rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-300">
+          ● Live Matching
         </span>
         {!isPlacesEnabled && (
-          <p className="text-xs text-amber-700 sm:max-w-xs sm:text-right">
-            Google Maps key is missing, so manual pickup/drop text is enabled.
+          <p className="text-[11px] text-amber-300 sm:max-w-xs sm:text-right font-mono">
+            Direct coordinate / text routing active
           </p>
         )}
       </div>
 
       <div className="relative">
-        <div className="flex min-h-[72px] items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition focus-within:border-teal-400">
-          <LocationIcon />
+        <div className="flex min-h-[68px] items-center gap-3 rounded-xl border border-white/10 bg-slate-900/60 p-3.5 backdrop-blur-md transition-all focus-within:border-emerald-500/50 focus-within:shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+          <div className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+            <LocationIcon />
+          </div>
           <div className="flex-1">
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase text-slate-500">Pickup</span>
+              <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">Pickup Location</span>
               <button
                 type="button"
                 onClick={handleUseMyLocation}
                 disabled={isLoadingPlaceDetails || !isPlacesEnabled}
-                className="text-xs font-semibold text-teal-700 hover:text-teal-600 disabled:opacity-50"
+                className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 disabled:opacity-40 transition"
               >
-                Use my location
+                ⊙ Current GPS
               </button>
             </div>
             <input
@@ -405,21 +407,21 @@ export default function BookRideForm({
                   setOriginPlaceName(e.target.value);
                 }
               }}
-              placeholder="Pickup location"
-              className="w-full bg-transparent text-sm text-slate-950 placeholder-slate-400 outline-none"
+              placeholder="Enter campus pickup spot (e.g. Library, Gate 2, Hostel 3)"
+              className="w-full bg-transparent text-sm text-white placeholder-slate-500 outline-none"
               disabled={isBusy || isLoadingPlaceDetails}
               autoComplete="off"
             />
           </div>
         </div>
         {activeField === "origin" && originSuggestions.length > 0 && (
-          <div className="absolute left-0 right-0 z-30 mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+          <div className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
             {originSuggestions.slice(0, 6).map((p) => (
               <button
                 type="button"
                 key={p.placeId}
                 onClick={() => void handlePickSuggestion(p, "origin")}
-                className="block w-full truncate border-b border-slate-100 px-3 py-2.5 text-left text-sm text-slate-700 transition last:border-b-0 hover:bg-slate-50"
+                className="block w-full truncate border-b border-white/5 px-3.5 py-2.5 text-left text-xs text-slate-200 transition last:border-b-0 hover:bg-emerald-500/10 hover:text-emerald-300"
               >
                 {p.text}
               </button>
@@ -429,10 +431,12 @@ export default function BookRideForm({
       </div>
 
       <div className="relative">
-        <div className="flex min-h-[72px] items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition focus-within:border-teal-400">
-          <FlagIcon />
+        <div className="flex min-h-[68px] items-center gap-3 rounded-xl border border-white/10 bg-slate-900/60 p-3.5 backdrop-blur-md transition-all focus-within:border-cyan-500/50 focus-within:shadow-[0_0_20px_rgba(6,182,212,0.15)]">
+          <div className="grid h-9 w-9 place-items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+            <FlagIcon />
+          </div>
           <div className="flex-1">
-            <span className="text-xs font-semibold uppercase text-slate-500">Destination</span>
+            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">Drop Destination</span>
             <input
               type="text"
               value={destination}
@@ -443,21 +447,21 @@ export default function BookRideForm({
                   setDestinationPlaceName(e.target.value);
                 }
               }}
-              placeholder="Drop location"
-              className="mt-1 w-full bg-transparent text-sm text-slate-950 placeholder-slate-400 outline-none"
+              placeholder="Enter destination location"
+              className="mt-1 w-full bg-transparent text-sm text-white placeholder-slate-500 outline-none"
               disabled={isBusy || isLoadingPlaceDetails}
               autoComplete="off"
             />
           </div>
         </div>
         {activeField === "destination" && destinationSuggestions.length > 0 && (
-          <div className="absolute left-0 right-0 z-30 mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+          <div className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
             {destinationSuggestions.slice(0, 6).map((p) => (
               <button
                 type="button"
                 key={p.placeId}
                 onClick={() => void handlePickSuggestion(p, "destination")}
-                className="block w-full truncate border-b border-slate-100 px-3 py-2.5 text-left text-sm text-slate-700 transition last:border-b-0 hover:bg-slate-50"
+                className="block w-full truncate border-b border-white/5 px-3.5 py-2.5 text-left text-xs text-slate-200 transition last:border-b-0 hover:bg-cyan-500/10 hover:text-cyan-300"
               >
                 {p.text}
               </button>
@@ -467,27 +471,27 @@ export default function BookRideForm({
       </div>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
-          {error}
+        <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 px-3.5 py-2.5 text-xs text-rose-300">
+          ⚠️ {error}
         </div>
       )}
       {hasActiveRide && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          {activeRideMessage ?? "You already have an active ride"}
+        <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 px-3.5 py-2.5 text-xs text-amber-300">
+          ℹ️ {activeRideMessage ?? "You already have an active ride session."}
         </div>
       )}
       {!walletConnected && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          Connect wallet before booking a ride
+        <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 px-3.5 py-2.5 text-xs text-amber-300">
+          🔒 Connect Pera Wallet before dispatching ride escrow.
         </div>
       )}
 
       <button
         type="submit"
         disabled={!isValid}
-        className="w-full rounded-lg bg-teal-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="cyber-button w-full rounded-xl py-3.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {isBusy || isLoadingPlaceDetails ? "Processing…" : "Book Ride"}
+        {isBusy || isLoadingPlaceDetails ? "Verifying with Algorand..." : "⚡ Book Ride with Escrow"}
       </button>
     </form>
   );
