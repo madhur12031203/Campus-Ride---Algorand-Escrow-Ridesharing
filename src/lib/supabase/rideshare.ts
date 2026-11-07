@@ -8,10 +8,10 @@ import type {
   UserRole,
 } from "@/types";
 
-const supabase = createClient();
+// Create the client when a ride operation runs, so public pages can render before setup.
 
 export async function getCurrentAuthUser() {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await createClient().auth.getUser();
   if (error) throw error;
   return data.user;
 }
@@ -74,8 +74,7 @@ export async function createRideOffer(input: {
   destination: string;
   availableSeats: number;
 }) {
-  const { data, error } = await supabase
-    .from("rides")
+  const { data, error } = await createClient().from("rides")
     .insert({
       driver_id: input.driverId,
       source: input.source,
@@ -90,8 +89,7 @@ export async function createRideOffer(input: {
 }
 
 export async function listOpenRides() {
-  const { data, error } = await supabase
-    .from("rides")
+  const { data, error } = await createClient().from("rides")
     .select("id,driver_id,source,destination,available_seats,status")
     .eq("status", "open")
     .order("id", { ascending: false });
@@ -105,8 +103,7 @@ export async function createRideRequest(input: {
   destination: string;
   fareEstimate: number;
 }) {
-  const { data, error } = await supabase
-    .from("ride_requests")
+  const { data, error } = await createClient().from("ride_requests")
     .insert({
       passenger_id: input.passengerId,
       source: input.source,
@@ -121,8 +118,7 @@ export async function createRideRequest(input: {
 }
 
 export async function listWaitingRideRequests() {
-  const { data, error } = await supabase
-    .from("ride_requests")
+  const { data, error } = await createClient().from("ride_requests")
     .select("id,passenger_id,source,destination,fare_estimate,status")
     .eq("status", "waiting")
     .order("id", { ascending: false });
@@ -137,8 +133,7 @@ export async function createBooking(input: {
   fare: number;
   algorandAppId?: number | null;
 }) {
-  const { data, error } = await supabase
-    .from("bookings")
+  const { data, error } = await createClient().from("bookings")
     .insert({
       driver_id: input.driverId,
       passenger_id: input.passengerId,
@@ -156,26 +151,24 @@ export async function createBooking(input: {
 }
 
 export async function updateRideRequestStatus(requestId: string, status: string) {
-  const { error } = await supabase
-    .from("ride_requests")
+  const { error } = await createClient().from("ride_requests")
     .update({ status })
     .eq("id", requestId);
   if (error) throw error;
 }
 
 export async function updateRideStatus(rideId: string, status: string) {
-  const { error } = await supabase.from("rides").update({ status }).eq("id", rideId);
+  const { error } = await createClient().from("rides").update({ status }).eq("id", rideId);
   if (error) throw error;
 }
 
 export async function updateBookingStatus(bookingId: string, status: BookingStatus) {
-  const { error } = await supabase.from("bookings").update({ status }).eq("id", bookingId);
+  const { error } = await createClient().from("bookings").update({ status }).eq("id", bookingId);
   if (error) throw error;
 }
 
 export async function setEscrowTxn(bookingId: string, escrowTxnId: string) {
-  const { error } = await supabase
-    .from("bookings")
+  const { error } = await createClient().from("bookings")
     .update({ escrow_txn_id: escrowTxnId })
     .eq("id", bookingId);
   if (error) throw error;
@@ -183,8 +176,7 @@ export async function setEscrowTxn(bookingId: string, escrowTxnId: string) {
 
 export async function listMyBookings(userId: string, role: UserRole) {
   const column = role === "driver" ? "driver_id" : "passenger_id";
-  const { data, error } = await supabase
-    .from("bookings")
+  const { data, error } = await createClient().from("bookings")
     .select(
       "id,driver_id,passenger_id,ride_id,fare,status,algorand_app_id,escrow_txn_id"
     )
@@ -201,7 +193,7 @@ export async function submitRating(input: {
   rating: number;
   comment?: string;
 }) {
-  const { error: insertError } = await supabase.from("ratings").upsert(
+  const { error: insertError } = await createClient().from("ratings").upsert(
     {
       from_user_id: input.fromUserId,
       to_user_id: input.toUserId,
@@ -213,8 +205,7 @@ export async function submitRating(input: {
   );
   if (insertError) throw insertError;
 
-  const { data: ratingRows, error: ratingError } = await supabase
-    .from("ratings")
+  const { data: ratingRows, error: ratingError } = await createClient().from("ratings")
     .select("rating")
     .eq("to_user_id", input.toUserId);
   if (ratingError) throw ratingError;
@@ -226,8 +217,7 @@ export async function submitRating(input: {
       ? Number((values.reduce((sum, value) => sum + value, 0) / ratingCount).toFixed(2))
       : 0;
 
-  const { error: userUpdateError } = await supabase
-    .from("users")
+  const { error: userUpdateError } = await createClient().from("users")
     .update({ rating_avg: ratingAvg, rating_count: ratingCount })
     .eq("id", input.toUserId);
   if (userUpdateError) throw userUpdateError;

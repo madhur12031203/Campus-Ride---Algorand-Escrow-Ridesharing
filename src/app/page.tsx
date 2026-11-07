@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import LandingPage from "@/components/LandingPage";
 import { useEffect, useState } from "react";
 import BestDealCard from "@/components/BestDealCard";
 import ChatWidget from "@/components/ChatWidget";
@@ -29,21 +29,9 @@ function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
   });
 }
 
-function AppLoadingState({ label }: { label: string }) {
-  return (
-    <main className="relative isolate min-h-screen text-slate-950">
-      <VideoBackground />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-        <div className="w-full rounded-lg border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/80">
-          <p className="text-sm text-slate-600">{label}</p>
-        </div>
-      </div>
-    </main>
-  );
-}
 
 export default function Home() {
-  const router = useRouter();
+
   const [results, setResults] = useState<FareResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
@@ -85,11 +73,7 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!isAuthLoading && !isSignedIn) {
-      router.replace("/login");
-    }
-  }, [isAuthLoading, isSignedIn, router]);
+
 
   const bestDeal =
     results.length > 0
@@ -129,15 +113,15 @@ export default function Home() {
   }
 
   if (isAuthLoading) {
-    return <AppLoadingState label="Loading your campus ride dashboard..." />;
+    return <LandingPage />;
   }
 
   if (!isSignedIn) {
-    return <AppLoadingState label="Redirecting to login..." />;
+    return <LandingPage />;
   }
 
   return (
-    <main className="relative isolate min-h-screen text-slate-950">
+    <main id="main-content" className="dashboard-page relative isolate min-h-screen text-slate-950">
       <VideoBackground />
       <ChatWidget />
 

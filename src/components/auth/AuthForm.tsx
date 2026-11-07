@@ -122,7 +122,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
   }
 
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur sm:p-8">
+    <div className="auth-card rounded-lg border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur sm:p-8">
       <div className={`mb-4 h-1.5 w-14 rounded-full ${accentClass}`} />
       <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">{title}</h2>
       <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
@@ -241,7 +241,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
         </div>
 
         {error && (
-          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-200">
+          <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-200">
             {error}
           </div>
         )}
