@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { getDemoUser } from "@/lib/auth/demoAuth";
 import { ensureUserProfile } from "@/lib/supabase/rideshare";
 import RatingStars from "@/components/ui/RatingStars";
 import VideoBackground from "@/components/VideoBackground";
@@ -30,31 +29,17 @@ export default function ProfilePage() {
   const [authUser, setAuthUser] = useState<{ email?: string } | null>(null);
 
   useEffect(() => {
-    const demoUser = getDemoUser();
-    if (demoUser) {
-      setAuthUser({ email: demoUser.email });
-      void ensureUserProfile().then((p) => {
-        setProfile(p);
-        setIsLoading(false);
-      });
-      return;
-    }
-
     try {
-      const supabase = createClient();
-      void supabase.auth.getUser().then(({ data }) => {
-        if (!data.user) {
-          router.push("/login");
-          return;
-        }
-        setAuthUser(data.user);
-        loadProfile(data.user.id);
-      }).catch(() => {
+    const supabase = createClient();
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
         router.push("/login");
-      });
-    } catch {
-      router.push("/login");
-    }
+        return;
+      }
+      setAuthUser(data.user);
+      void loadProfile(data.user.id);
+    }).catch(() => router.replace("/login"));
+    } catch { router.replace("/login"); }
   }, [router]);
 
   async function loadProfile(userId: string) {

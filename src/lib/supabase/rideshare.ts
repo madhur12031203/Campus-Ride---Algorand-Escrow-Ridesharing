@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/client";
-import { getDemoUser, setDemoUser } from "@/lib/auth/demoAuth";
 import type {
   BookingRow,
   BookingStatus,
@@ -9,84 +8,40 @@ import type {
   UserRole,
 } from "@/types";
 
-function getClient() {
-  return createClient();
-}
+// Create the client when a ride operation runs, so public pages can render before setup.
 
 export async function getCurrentAuthUser() {
-  const demoUser = getDemoUser();
-  if (demoUser) {
-    return {
-      id: demoUser.id,
-      email: demoUser.email,
-      user_metadata: { full_name: demoUser.name },
-    };
-  }
-  const { data, error } = await getClient().auth.getUser();
+  const { data, error } = await createClient().auth.getUser();
   if (error) throw error;
   return data.user;
 }
 
-export async function ensureUserProfile(walletAddress?: string | null): Promise<UserProfileRow | null> {
-  const demoUser = getDemoUser();
-  if (demoUser) {
-    if (walletAddress !== undefined && demoUser.wallet_address !== walletAddress) {
-      demoUser.wallet_address = walletAddress;
-      setDemoUser(demoUser);
-    }
-    return {
-      id: demoUser.id,
-      name: demoUser.name,
-      role: demoUser.role,
-      wallet_address: demoUser.wallet_address ?? null,
-      rating_avg: demoUser.rating_avg,
-      rating_count: demoUser.rating_count,
-    };
+export async function ensureUserProfile(walletAddress?: string | null) {
+  const profileResponse = await fetch("/api/profile", {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (profileResponse.status === 401) return null;
+
+  const profileJson = (await profileResponse.json()) as {
+    profile?: UserProfileRow;
+    error?: string;
+  };
+
+  if (!profileResponse.ok || !profileJson.profile) {
+    throw new Error(profileJson.error || "Failed to load profile");
   }
 
-  try {
-    const profileResponse = await fetch("/api/profile", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (profileResponse.status === 401) return null;
-
-    const profileJson = (await profileResponse.json()) as {
-      profile?: UserProfileRow;
-      error?: string;
-    };
-
-    if (!profileResponse.ok || !profileJson.profile) {
-      return null;
-    }
-
-    if (walletAddress !== undefined && profileJson.profile.wallet_address !== walletAddress) {
-      return updateWalletAddress(profileJson.profile.id, walletAddress ?? null);
-    }
-
-    return profileJson.profile;
-  } catch {
-    return null;
+  if (walletAddress !== undefined && profileJson.profile.wallet_address !== walletAddress) {
+    return updateWalletAddress(profileJson.profile.id, walletAddress ?? null);
   }
+
+  return profileJson.profile;
 }
 
 export async function updateRole(userId: string, role: UserRole) {
   void userId;
-  const demoUser = getDemoUser();
-  if (demoUser) {
-    demoUser.role = role;
-    setDemoUser(demoUser);
-    return {
-      id: demoUser.id,
-      name: demoUser.name,
-      role: demoUser.role,
-      wallet_address: demoUser.wallet_address ?? null,
-      rating_avg: demoUser.rating_avg,
-      rating_count: demoUser.rating_count,
-    };
-  }
-
   const response = await fetch("/api/profile", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -101,20 +56,6 @@ export async function updateRole(userId: string, role: UserRole) {
 
 export async function updateWalletAddress(userId: string, walletAddress: string | null) {
   void userId;
-  const demoUser = getDemoUser();
-  if (demoUser) {
-    demoUser.wallet_address = walletAddress;
-    setDemoUser(demoUser);
-    return {
-      id: demoUser.id,
-      name: demoUser.name,
-      role: demoUser.role,
-      wallet_address: demoUser.wallet_address ?? null,
-      rating_avg: demoUser.rating_avg,
-      rating_count: demoUser.rating_count,
-    };
-  }
-
   const response = await fetch("/api/profile", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -133,8 +74,7 @@ export async function createRideOffer(input: {
   destination: string;
   availableSeats: number;
 }) {
-  const { data, error } = await getClient()
-    .from("rides")
+  const { data, error } = await createClient().from("rides")
     .insert({
       driver_id: input.driverId,
       source: input.source,
@@ -149,8 +89,7 @@ export async function createRideOffer(input: {
 }
 
 export async function listOpenRides() {
-  const { data, error } = await getClient()
-    .from("rides")
+  const { data, error } = await createClient().from("rides")
     .select("id,driver_id,source,destination,available_seats,status")
     .eq("status", "open")
     .order("id", { ascending: false });
@@ -164,8 +103,7 @@ export async function createRideRequest(input: {
   destination: string;
   fareEstimate: number;
 }) {
-  const { data, error } = await getClient()
-    .from("ride_requests")
+  const { data, error } = await createClient().from("ride_requests")
     .insert({
       passenger_id: input.passengerId,
       source: input.source,
@@ -180,8 +118,7 @@ export async function createRideRequest(input: {
 }
 
 export async function listWaitingRideRequests() {
-  const { data, error } = await getClient()
-    .from("ride_requests")
+  const { data, error } = await createClient().from("ride_requests")
     .select("id,passenger_id,source,destination,fare_estimate,status")
     .eq("status", "waiting")
     .order("id", { ascending: false });
@@ -196,8 +133,7 @@ export async function createBooking(input: {
   fare: number;
   algorandAppId?: number | null;
 }) {
-  const { data, error } = await getClient()
-    .from("bookings")
+  const { data, error } = await createClient().from("bookings")
     .insert({
       driver_id: input.driverId,
       passenger_id: input.passengerId,
@@ -215,26 +151,24 @@ export async function createBooking(input: {
 }
 
 export async function updateRideRequestStatus(requestId: string, status: string) {
-  const { error } = await getClient()
-    .from("ride_requests")
+  const { error } = await createClient().from("ride_requests")
     .update({ status })
     .eq("id", requestId);
   if (error) throw error;
 }
 
 export async function updateRideStatus(rideId: string, status: string) {
-  const { error } = await getClient().from("rides").update({ status }).eq("id", rideId);
+  const { error } = await createClient().from("rides").update({ status }).eq("id", rideId);
   if (error) throw error;
 }
 
 export async function updateBookingStatus(bookingId: string, status: BookingStatus) {
-  const { error } = await getClient().from("bookings").update({ status }).eq("id", bookingId);
+  const { error } = await createClient().from("bookings").update({ status }).eq("id", bookingId);
   if (error) throw error;
 }
 
 export async function setEscrowTxn(bookingId: string, escrowTxnId: string) {
-  const { error } = await getClient()
-    .from("bookings")
+  const { error } = await createClient().from("bookings")
     .update({ escrow_txn_id: escrowTxnId })
     .eq("id", bookingId);
   if (error) throw error;
@@ -242,8 +176,7 @@ export async function setEscrowTxn(bookingId: string, escrowTxnId: string) {
 
 export async function listMyBookings(userId: string, role: UserRole) {
   const column = role === "driver" ? "driver_id" : "passenger_id";
-  const { data, error } = await getClient()
-    .from("bookings")
+  const { data, error } = await createClient().from("bookings")
     .select(
       "id,driver_id,passenger_id,ride_id,fare,status,algorand_app_id,escrow_txn_id"
     )
@@ -260,7 +193,7 @@ export async function submitRating(input: {
   rating: number;
   comment?: string;
 }) {
-  const { error: insertError } = await getClient().from("ratings").upsert(
+  const { error: insertError } = await createClient().from("ratings").upsert(
     {
       from_user_id: input.fromUserId,
       to_user_id: input.toUserId,
@@ -272,8 +205,7 @@ export async function submitRating(input: {
   );
   if (insertError) throw insertError;
 
-  const { data: ratingRows, error: ratingError } = await getClient()
-    .from("ratings")
+  const { data: ratingRows, error: ratingError } = await createClient().from("ratings")
     .select("rating")
     .eq("to_user_id", input.toUserId);
   if (ratingError) throw ratingError;
@@ -285,8 +217,7 @@ export async function submitRating(input: {
       ? Number((values.reduce((sum, value) => sum + value, 0) / ratingCount).toFixed(2))
       : 0;
 
-  const { error: userUpdateError } = await getClient()
-    .from("users")
+  const { error: userUpdateError } = await createClient().from("users")
     .update({ rating_avg: ratingAvg, rating_count: ratingCount })
     .eq("id", input.toUserId);
   if (userUpdateError) throw userUpdateError;

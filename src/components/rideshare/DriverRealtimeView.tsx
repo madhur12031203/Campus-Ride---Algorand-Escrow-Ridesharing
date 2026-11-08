@@ -254,24 +254,17 @@ export default function DriverRealtimeView({
   return (
     <div className="space-y-4">
       {!hasLocation ? (
-        <div className="cyber-glass rounded-2xl p-5 border border-white/10 shadow-2xl">
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           {!isPlacesEnabled && (
-            <p className="mb-3 text-[11px] font-mono text-amber-300">
-              Direct campus coordinate / manual mode active.
+            <p className="mb-3 text-xs text-amber-700">
+              Google Maps key is missing, so manual driver location is enabled.
             </p>
           )}
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-mono font-semibold uppercase tracking-wider text-cyan-400">Driver Radar</p>
-              <h4 className="text-sm font-bold text-white">Set Your Current Location</h4>
-            </div>
-            <span className="grid h-8 w-8 place-items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 animate-pulse">
-              📍
-            </span>
-          </div>
-
+          <p className="mb-3 text-sm font-medium text-slate-700">
+            Enter your location to see nearby rides
+          </p>
           <div className="relative" ref={inputRef}>
-            <div className="flex min-h-[56px] items-center gap-3 rounded-xl border border-white/10 bg-slate-900/60 p-3 backdrop-blur-md transition-all focus-within:border-cyan-500/50 focus-within:shadow-[0_0_20px_rgba(6,182,212,0.15)]">
+            <div className="flex min-h-[56px] items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 transition focus-within:border-sky-400">
               <LocationIcon />
               <div className="flex-1">
                 <input
@@ -279,21 +272,21 @@ export default function DriverRealtimeView({
                   value={locationName}
                   onFocus={() => setIsActive(true)}
                   onChange={(e) => setLocationName(e.target.value)}
-                  placeholder="Enter current campus location or gate"
-                  className="w-full bg-transparent text-xs text-white placeholder-slate-500 outline-none"
+                  placeholder="Your current location"
+                  className="w-full bg-transparent text-sm text-slate-950 placeholder-slate-400 outline-none"
                   disabled={isLoadingPlaceDetails}
                   autoComplete="off"
                 />
               </div>
             </div>
             {isActive && suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
+              <div className="absolute left-0 right-0 z-30 mt-1.5 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
                 {suggestions.slice(0, 6).map((p) => (
                   <button
                     type="button"
                     key={p.placeId}
                     onClick={() => void handlePickSuggestion(p)}
-                    className="block w-full truncate border-b border-white/5 px-3.5 py-2.5 text-left text-xs text-slate-200 transition last:border-b-0 hover:bg-cyan-500/10 hover:text-cyan-300"
+                    className="block w-full truncate border-b border-slate-100 px-3 py-2.5 text-left text-sm text-slate-700 transition last:border-b-0 hover:bg-slate-50"
                   >
                     {p.text}
                   </button>
@@ -306,24 +299,21 @@ export default function DriverRealtimeView({
               type="button"
               onClick={isPlacesEnabled ? handleUseMyLocation : handleManualLocation}
               disabled={isLoadingPlaceDetails}
-              className="cyber-button w-full rounded-xl py-2.5 text-xs font-bold text-white transition disabled:opacity-40"
+              className="w-full rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50"
             >
-              {isLoadingPlaceDetails ? "Locking GPS Coordinates..." : isPlacesEnabled ? "⊙ Use GPS Location" : "Continue to Radar"}
+              {isLoadingPlaceDetails ? "Loading..." : isPlacesEnabled ? "Use my location" : "Continue"}
             </button>
           </div>
           {error && (
-            <p className="mt-2 text-xs text-rose-300 font-mono">⚠️ {error}</p>
+            <p className="mt-2 text-sm text-rose-700">{error}</p>
           )}
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-cyan-500/20 bg-cyan-950/20 px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
-              <span className="font-mono text-xs text-slate-300">
-                Radar Origin: <strong className="text-white">{locationName || "Current GPS Location"}</strong>
-              </span>
-            </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+            <span className="text-sm text-slate-600">
+              Your location: {locationName || "Current location selected"}
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -331,7 +321,7 @@ export default function DriverRealtimeView({
                 setDriverLng(null);
                 setLocationName("");
               }}
-              className="font-mono text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition"
+              className="text-xs font-medium text-slate-500 hover:text-slate-900"
             >
               Change
             </button>

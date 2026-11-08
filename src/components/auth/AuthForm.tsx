@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { createDemoSession, getDemoUser } from "@/lib/auth/demoAuth";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 type AuthFormProps = {
@@ -36,27 +36,12 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isConfigured, setIsConfigured] = useState(true);
-
-  useEffect(() => {
-    const demoUser = getDemoUser();
-    if (demoUser) {
-      router.replace("/");
-      return;
-    }
-    setIsConfigured(isSupabaseConfigured());
-  }, [router]);
 
   function getErrorMessage(err: unknown, fallback: string): string {
     if (!(err instanceof Error)) return fallback;
 
-    const lower = err.message.toLowerCase();
-    if (lower.includes("invalid login credentials")) {
-      return "Invalid email or password. If you haven't created an account yet, switch to 'Sign Up' above.";
-    }
-
-    if (lower.includes("failed to fetch") || lower.includes("placeholder")) {
-      return "Could not reach Supabase backend. Use 'Instant Demo Login' below or configure .env.local.";
+    if (err.message.toLowerCase().includes("failed to fetch")) {
+      return "Could not reach Supabase. Check that NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are set correctly in Vercel, then redeploy.";
     }
 
     return err.message;
@@ -68,24 +53,12 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
     return window.location.origin;
   }
 
-  function handleInstantDemo() {
-    createDemoSession(role, email || undefined, name || undefined);
-    window.location.href = "/";
-  }
-
   async function handleEmailAuth(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
-      if (!isSupabaseConfigured()) {
-        // Fallback to instant local demo session if Supabase is not configured
-        createDemoSession(role, email, isSignUp ? name : undefined);
-        window.location.href = "/";
-        return;
-      }
-
       const supabase = createClient();
       const baseUrl = getAuthBaseUrl();
       const redirectTo = `${baseUrl}/auth/callback?role=${role}`;
@@ -114,7 +87,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
         });
 
         if (signInError) throw signInError;
-        window.location.href = redirectTo;
+        router.push(redirectTo);
       } else {
         // Sign in
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -123,7 +96,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
         });
 
         if (signInError) throw signInError;
-        window.location.href = redirectTo;
+        router.push(redirectTo);
       }
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Authentication failed. Please try again."));
@@ -134,11 +107,6 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
 
   async function handleGoogleAuth() {
     setError(null);
-
-    if (!isSupabaseConfigured()) {
-      handleInstantDemo();
-      return;
-    }
 
     try {
       const supabase = createClient();
@@ -155,10 +123,22 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
     }
   }
 
+  if (!isSupabaseConfigured()) {
+    return (
+      <section className="auth-card">
+        <h1 className="text-2xl font-semibold">{title} sign-in</h1>
+        <p className="my-4 text-sm text-slate-600">
+          Account services are not configured. You can explore the ride flow with sample data.
+        </p>
+        <Link className="button-primary" href="/demo">Explore demo →</Link>
+      </section>
+    );
+  }
+
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur sm:p-8">
+    <div className="auth-card rounded-lg border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur sm:p-8">
       <div className={`mb-4 h-1.5 w-14 rounded-full ${accentClass}`} />
-      <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">{title}</h2>
+      <h1 className="text-xl font-semibold text-slate-100 sm:text-2xl">{title}</h1>
       <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
 
       {/* Toggle between Sign Up and Sign In */}
@@ -201,7 +181,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
               Full Name
             </label>
             <input
-              id="name"
+              id="name" autoComplete="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -218,7 +198,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
             Email
           </label>
           <input
-            id="email"
+            id="email" autoComplete="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -246,7 +226,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
                     const supabase = createClient();
                     const baseUrl = getAuthBaseUrl();
                     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                      redirectTo: `${baseUrl}/auth/reset-password`,
+                      redirectTo: `${baseUrl}/auth/callback?mode=recovery`,
                     });
                     if (error) throw error;
                     setError(null);
@@ -262,7 +242,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
             )}
           </div>
           <input
-            id="password"
+            id="password" autoComplete={isSignUp ? "new-password" : "current-password"}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -275,7 +255,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
         </div>
 
         {error && (
-          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-200">
+          <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-200">
             {error}
           </div>
         )}
@@ -293,24 +273,10 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
         </button>
       </form>
 
-      {/* Quick Demo Access Button */}
-      <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3.5 text-center">
-        <p className="text-[11px] text-slate-300 font-mono mb-2">
-          Want to test immediately without typing passwords?
-        </p>
-        <button
-          type="button"
-          onClick={handleInstantDemo}
-          className="w-full rounded-lg border border-emerald-500/40 bg-emerald-500/15 py-2.5 text-xs font-bold text-emerald-300 transition hover:bg-emerald-500/25 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-        >
-          ⚡ Instant 1-Click Demo Login ({role === "driver" ? "Campus Driver" : "Campus Passenger"})
-        </button>
-      </div>
-
       {/* Divider */}
       <div className="my-6 flex items-center gap-3">
         <div className="h-px flex-1 bg-slate-700" />
-        <span className="text-xs text-slate-500">OR CONTINUE WITH GOOGLE</span>
+        <span className="text-xs text-slate-500">OR</span>
         <div className="h-px flex-1 bg-slate-700" />
       </div>
 
@@ -345,7 +311,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
 
       {isSignUp && (
         <p className="mt-4 text-center text-xs text-slate-400">
-          By signing up, you agree to our Terms of Service and Privacy Policy
+          This project uses a development network. Do not use real payment details.
         </p>
       )}
     </div>

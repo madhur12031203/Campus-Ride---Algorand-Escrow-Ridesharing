@@ -74,31 +74,7 @@ export async function POST(request: Request) {
     const existingUser = await findUserByEmail(supabase, email);
 
     if (existingUser) {
-      if (!existingUser.email_confirmed_at) {
-        const { error: updateError } = await supabase.auth.admin.updateUserById(
-          existingUser.id,
-          { email_confirm: true }
-        );
-
-        if (updateError) {
-          return NextResponse.json({ error: updateError.message }, { status: 500 });
-        }
-      }
-
-      const { error: profileError } = await supabase.from("users").upsert(
-        {
-          id: existingUser.id,
-          name,
-          role,
-        },
-        { onConflict: "id" }
-      );
-
-      if (profileError) {
-        return NextResponse.json({ error: profileError.message }, { status: 500 });
-      }
-
-      return NextResponse.json({ userId: existingUser.id, existing: true });
+      return NextResponse.json({ error: "Unable to create this account. Sign in or reset your password." }, { status: 409 });
     }
 
     const { data, error } = await supabase.auth.admin.createUser({

@@ -1,11 +1,11 @@
 import AuthForm from "@/components/auth/AuthForm";
-import VideoBackground from "@/components/VideoBackground";
+import Link from "next/link";
 
 export default function PassengerLoginPage() {
   return (
-    <main className="relative isolate flex min-h-screen flex-col items-center justify-center px-6">
-      <VideoBackground />
-      <div className="relative z-10 w-full max-w-md">
+    <main id="main-content" className="auth-page flex flex-col items-center justify-center">
+
+      <div className="auth-shell"><Link href="/login" className="auth-back">← Choose another role</Link>
         <AuthForm
           role="passenger"
           title="Passenger"
@@ -16,4 +16,3 @@ export default function PassengerLoginPage() {
     </main>
   );
 }
-

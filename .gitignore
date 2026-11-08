@@ -37,3 +37,7 @@ dev-server.*.log
 .vscode/
 *.swp
 *.swo
+
+# Legacy local contract copies; canonical contract source is smart_contracts/
+/ride-escrow/
+/ride-escrow-backup/
