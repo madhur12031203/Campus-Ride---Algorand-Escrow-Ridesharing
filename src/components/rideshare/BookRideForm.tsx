@@ -1,5 +1,7 @@
 "use client";
 
+import { parseCoordinates } from "@/lib/coordinates";
+
 /**
  * Passenger: Book Ride form with Google Places Autocomplete.
  * Users select places from autocomplete → we fetch lat/lng from place ID.
@@ -113,7 +115,7 @@ type BookRideFormProps = {
   isBusy: boolean;
   hasActiveRide?: boolean;
   activeRideMessage?: string | null;
-  walletConnected: boolean;
+  walletRequired: boolean;
 };
 
 function LocationIcon() {
@@ -138,7 +140,7 @@ export default function BookRideForm({
   isBusy,
   hasActiveRide = false,
   activeRideMessage,
-  walletConnected,
+  walletRequired,
 }: BookRideFormProps) {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -291,7 +293,7 @@ export default function BookRideForm({
       setError("Please select both pickup and destination locations from the list");
       return;
     }
-    if (!walletConnected) {
+    if (walletRequired) {
       setError("Connect wallet before booking a ride");
       return;
     }
@@ -299,37 +301,25 @@ export default function BookRideForm({
     setIsLoadingPlaceDetails(true);
 
     try {
-      let originLat: number;
-      let originLng: number;
-      let destLat = 28.544;
-      let destLng = 77.401;
+      const pickup = originPlaceId?.startsWith("manual_")
+        ? parseCoordinates(originPlaceId.slice("manual_".length).replace("_", ","))
+        : originPlaceId
+          ? await fetchPlaceDetails(originPlaceId)
+          : parseCoordinates(origin);
+      const dropoff = destinationPlaceId
+        ? await fetchPlaceDetails(destinationPlaceId)
+        : parseCoordinates(destination);
 
-      if (!isPlacesEnabled) {
-        originLat = 28.5355;
-        originLng = 77.391;
-        destLat = 28.544;
-        destLng = 77.401;
-      } else if (originPlaceId?.startsWith("manual_")) {
-        const [, lat, lng] = originPlaceId.split("_");
-        originLat = parseFloat(lat);
-        originLng = parseFloat(lng);
-      } else {
-        const originDetails = await fetchPlaceDetails(originPlaceId as string);
-        originLat = originDetails.lat;
-        originLng = originDetails.lng;
-      }
-
-      if (isPlacesEnabled) {
-        const destDetails = await fetchPlaceDetails(destinationPlaceId as string);
-        destLat = destDetails.lat;
-        destLng = destDetails.lng;
+      if (!pickup || !dropoff) {
+        setError("Enter valid pickup and destination coordinates as latitude, longitude.");
+        return;
       }
 
       await onBookRide({
-        originLat,
-        originLng,
-        destinationLat: destLat,
-        destinationLng: destLng,
+        originLat: pickup.lat,
+        originLng: pickup.lng,
+        destinationLat: dropoff.lat,
+        destinationLng: dropoff.lng,
         pickupPlaceName: originPlaceName ?? origin,
         destinationPlaceName: destinationPlaceName ?? destination,
       });
@@ -351,12 +341,10 @@ export default function BookRideForm({
   };
 
   const isValid =
-    originPlaceId &&
-    destinationPlaceId &&
     !isBusy &&
     !isLoadingPlaceDetails &&
     !hasActiveRide &&
-    walletConnected &&
+    !walletRequired &&
     Boolean(origin.trim()) &&
     Boolean(destination.trim()) &&
     (!isPlacesEnabled || Boolean(originPlaceId && destinationPlaceId));
@@ -367,7 +355,7 @@ export default function BookRideForm({
         <div>
           <h2 className="text-lg font-semibold text-slate-950">Book a ride</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Choose verified locations, then publish the request to nearby drivers.
+            Set your pickup and destination, then request a ride from nearby drivers.
           </p>
         </div>
         <span className="w-fit rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
@@ -375,7 +363,7 @@ export default function BookRideForm({
         </span>
         {!isPlacesEnabled && (
           <p className="text-xs text-amber-700 sm:max-w-xs sm:text-right">
-            Google Maps key is missing, so manual pickup/drop text is enabled.
+            Enter coordinates as latitude, longitude. Map search is unavailable.
           </p>
         )}
       </div>
@@ -389,7 +377,7 @@ export default function BookRideForm({
               <button
                 type="button"
                 onClick={handleUseMyLocation}
-                disabled={isLoadingPlaceDetails || !isPlacesEnabled}
+                disabled={isBusy || isLoadingPlaceDetails}
                 className="text-xs font-semibold text-teal-700 hover:text-teal-600 disabled:opacity-50"
               >
                 Use my location
@@ -401,11 +389,10 @@ export default function BookRideForm({
               onFocus={() => setActiveField("origin")}
               onChange={(e) => {
                 setOrigin(e.target.value);
-                if (!isPlacesEnabled) {
-                  setOriginPlaceName(e.target.value);
-                }
+                setOriginPlaceId(null);
+                setOriginPlaceName(null);
               }}
-              placeholder="Pickup location"
+              placeholder={isPlacesEnabled ? "Pickup location" : "e.g. 28.5355, 77.391"}
               className="w-full bg-transparent text-sm text-slate-950 placeholder-slate-400 outline-none"
               disabled={isBusy || isLoadingPlaceDetails}
               autoComplete="off"
@@ -439,11 +426,10 @@ export default function BookRideForm({
               onFocus={() => setActiveField("destination")}
               onChange={(e) => {
                 setDestination(e.target.value);
-                if (!isPlacesEnabled) {
-                  setDestinationPlaceName(e.target.value);
-                }
+                setDestinationPlaceId(null);
+                setDestinationPlaceName(null);
               }}
-              placeholder="Drop location"
+              placeholder={isPlacesEnabled ? "Drop location" : "e.g. 28.544, 77.401"}
               className="mt-1 w-full bg-transparent text-sm text-slate-950 placeholder-slate-400 outline-none"
               disabled={isBusy || isLoadingPlaceDetails}
               autoComplete="off"
@@ -476,7 +462,7 @@ export default function BookRideForm({
           {activeRideMessage ?? "You already have an active ride"}
         </div>
       )}
-      {!walletConnected && (
+      {walletRequired && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
           Connect wallet before booking a ride
         </div>

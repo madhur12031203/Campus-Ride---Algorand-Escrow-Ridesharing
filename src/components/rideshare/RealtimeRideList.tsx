@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useRef, useState } from "react";
+import { ESCROW_PAYMENTS_ENABLED } from "@/lib/algorand/escrow";
 import {
   acceptRide,
-  driverHasActiveRide,
   fetchDriverActiveRide,
+  fetchDriverRideHistory,
   fetchWaitingRideBookings,
   haversineDistanceKm,
   subscribeToRideBookings,
@@ -16,151 +16,127 @@ const MAX_DISTANCE_KM = 8;
 type RideWithDistance = RideBookingRow & { distanceKm: number };
 
 type RealtimeRideListProps = {
-  driverLat: number;
-  driverLng: number;
+  driverId: string;
+  driverLat: number | null;
+  driverLng: number | null;
   isBusy: boolean;
-  onCompleteRide: (ride: RideBookingRow) => Promise<void>;
-  paymentMessage?: string | null;
+  onCompleteRide: (ride: RideBookingRow) => Promise<RideBookingRow | undefined>;
   driverWalletAddress: string | null;
   onToast: (message: string, tone?: "success" | "info" | "error") => void;
 };
 
 export default function RealtimeRideList({
+  driverId,
   driverLat,
   driverLng,
   isBusy,
   onCompleteRide,
-  paymentMessage,
   driverWalletAddress,
   onToast,
 }: RealtimeRideListProps) {
-  const [rides, setRides] = useState<RideWithDistance[]>([]);
+  const [waitingRides, setWaitingRides] = useState<RideBookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [driverId, setDriverId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeRide, setActiveRide] = useState<RideBookingRow | null>(null);
-  const [blockedByActiveRide, setBlockedByActiveRide] = useState(false);
+  const [history, setHistory] = useState<RideBookingRow[]>([]);
   const [rejectedRideIds, setRejectedRideIds] = useState<string[]>([]);
+  const [accepting, setAccepting] = useState(false);
+  const requestVersion = useRef(0);
+  const hasLocation = driverLat !== null && driverLng !== null;
+  const needsWallet = ESCROW_PAYMENTS_ENABLED && !driverWalletAddress;
 
-  const refreshDriverRideState = useCallback(
-    async (nextDriverId: string) => {
-      const [hasActive, ride] = await Promise.all([
-        driverHasActiveRide(nextDriverId),
-        fetchDriverActiveRide(nextDriverId),
-      ]);
-      setBlockedByActiveRide(hasActive);
-      setActiveRide(ride);
-    },
-    []
-  );
-
-  useEffect(() => {
-    const supabase = createClient();
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return;
-      setDriverId(data.user.id);
-      void refreshDriverRideState(data.user.id).catch(() => {
-        setError("Failed to load current ride");
-      });
-    });
-  }, [refreshDriverRideState]);
-
-  const addRideWithDistance = useCallback(
-    (ride: RideBookingRow) => {
-      if (ride.status !== "waiting" || ride.driver_id) return;
-      if (rejectedRideIds.includes(ride.id)) return;
-      const distanceKm = haversineDistanceKm(
-        driverLat,
-        driverLng,
-        ride.origin_lat,
-        ride.origin_lng
-      );
-      if (distanceKm > MAX_DISTANCE_KM) return;
-      setRides((prev) => {
-        if (prev.some((value) => value.id === ride.id)) return prev;
-        return [{ ...ride, distanceKm }, ...prev].sort((a, b) => a.distanceKm - b.distanceKm);
-      });
-    },
-    [driverLat, driverLng, rejectedRideIds]
-  );
-
-  const handleRideUpdate = useCallback(
-    (ride: RideBookingRow) => {
-      setRides((prev) => prev.filter((value) => value.id !== ride.id));
-      if (driverId && ride.driver_id === driverId) {
-        void refreshDriverRideState(driverId).catch(() => undefined);
-      }
-    },
-    [driverId, refreshDriverRideState]
-  );
+  const rides: RideWithDistance[] = driverLat === null || driverLng === null
+    ? []
+    : waitingRides
+        .filter((ride) => !rejectedRideIds.includes(ride.id))
+        .map((ride) => ({
+          ...ride,
+          distanceKm: haversineDistanceKm(driverLat, driverLng, ride.origin_lat, ride.origin_lng),
+        }))
+        .filter((ride) => ride.distanceKm <= MAX_DISTANCE_KM)
+        .sort((a, b) => a.distanceKm - b.distanceKm);
 
   useEffect(() => {
-    setError(null);
-    setLoading(true);
-    fetchWaitingRideBookings()
-      .then((data) => {
-        const withDistance = data
-          .map((ride) => ({
-            ...ride,
-            distanceKm: haversineDistanceKm(
-              driverLat,
-              driverLng,
-              ride.origin_lat,
-              ride.origin_lng
-            ),
-          }))
-          .filter((ride) => !rejectedRideIds.includes(ride.id))
-          .filter((ride) => ride.distanceKm <= MAX_DISTANCE_KM)
-          .sort((a, b) => a.distanceKm - b.distanceKm);
-        setRides(withDistance);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load rides"))
-      .finally(() => setLoading(false));
-  }, [driverLat, driverLng, rejectedRideIds]);
-
-  useEffect(() => {
-    const unsubscribe = subscribeToRideBookings(addRideWithDistance, handleRideUpdate);
-    return unsubscribe;
-  }, [addRideWithDistance, handleRideUpdate]);
-
-  const handleAcceptRide = useCallback(
-    async (rideId: string) => {
-      if (!driverId) {
-        setError("Please sign in to accept rides");
-        return;
-      }
-      if (!driverWalletAddress) {
-        setError("Connect wallet before accepting rides");
-        return;
-      }
-      if (blockedByActiveRide) {
-        setError("Finish your current ride first");
-        return;
-      }
-
-      setError(null);
+    let mounted = true;
+    const refresh = async () => {
+      const version = ++requestVersion.current;
       try {
-        await acceptRide(rideId, driverId, driverWalletAddress);
-        await refreshDriverRideState(driverId);
-        setRides((prev) => prev.filter((value) => value.id !== rideId));
-        onToast("Ride accepted", "success");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to accept ride");
+        const [current, previous, waiting] = await Promise.all([
+          fetchDriverActiveRide(driverId),
+          fetchDriverRideHistory(driverId),
+          hasLocation ? fetchWaitingRideBookings() : Promise.resolve([]),
+        ]);
+        if (mounted && version === requestVersion.current) {
+          setLoadError(null);
+          setActiveRide(current);
+          setHistory(previous);
+          setWaitingRides(waiting);
+        }
+      } catch {
+        if (mounted && version === requestVersion.current) {
+          setLoadError("Could not refresh rides. The app will try again automatically.");
+        }
       } finally {
-        // no-op
+        if (mounted) setLoading(false);
       }
-    },
-    [blockedByActiveRide, driverId, driverWalletAddress, onToast, refreshDriverRideState]
-  );
+    };
+    void refresh();
+    const unsubscribe = subscribeToRideBookings(
+      () => { if (hasLocation) void refresh(); },
+      (ride) => { if (hasLocation || ride.driver_id === driverId) void refresh(); },
+      () => void refresh(),
+    );
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    // Recheck the queue because another driver's accepted row is no longer visible to us.
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 20000);
+    return () => {
+      mounted = false;
+      unsubscribe();
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(timer);
+    };
+  }, [driverId, hasLocation]);
 
-  const handleRejectRide = useCallback(
-    (rideId: string) => {
-      setRejectedRideIds((prev) => (prev.includes(rideId) ? prev : [...prev, rideId]));
-      setRides((prev) => prev.filter((ride) => ride.id !== rideId));
-      onToast("Ride hidden from your queue", "info");
-    },
-    [onToast]
-  );
+  function rememberRide(ride: RideBookingRow) {
+    requestVersion.current += 1;
+    if (ride.status === "accepted") {
+      setActiveRide(ride);
+    } else {
+      setActiveRide(null);
+      setHistory((previous) => [ride, ...previous.filter((item) => item.id !== ride.id)]);
+    }
+  }
+
+  async function handleAcceptRide(rideId: string) {
+    if (accepting || isBusy || activeRide || needsWallet) return;
+    setAccepting(true);
+    setError(null);
+    try {
+      const ride = await acceptRide(rideId, driverId, driverWalletAddress);
+      rememberRide(ride);
+      setWaitingRides((previous) => previous.filter((item) => item.id !== ride.id));
+      onToast("Ride accepted", "success");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to accept ride. It may no longer be available.";
+      setError(message);
+    } finally {
+      setAccepting(false);
+    }
+  }
+
+  async function handleCompleteRide(ride: RideBookingRow) {
+    const updated = await onCompleteRide(ride);
+    if (updated) rememberRide(updated);
+  }
+
+  function handleRejectRide(rideId: string) {
+    setRejectedRideIds((previous) => [...previous, rideId]);
+    onToast("Ride hidden from your queue", "info");
+  }
 
   if (loading) {
     return (
@@ -172,14 +148,9 @@ export default function RealtimeRideList({
 
   return (
     <div className="space-y-4">
-      {error && (
+      {(error || loadError) && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          {error}
-        </div>
-      )}
-      {paymentMessage && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
-          {paymentMessage}
+          {error || loadError}
         </div>
       )}
       {activeRide ? (
@@ -202,39 +173,28 @@ export default function RealtimeRideList({
               {activeRide.destination_place_name || "Destination location"}
             </p>
           </div>
-          <p className="mt-2 text-xs text-slate-600">
-            {activeRide.escrow_state === "locked"
-              ? "Funds locked on Algorand"
-              : activeRide.escrow_state === "released"
-                ? "Payment released on completion"
-                : "Waiting for passenger to lock escrow"}
-          </p>
           {!activeRide.driver_completed && (
             <button
               type="button"
-              onClick={() => void onCompleteRide(activeRide)}
+              onClick={() => void handleCompleteRide(activeRide)}
               disabled={isBusy}
               className="mt-3 w-full rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Complete Ride
+              Confirm completion
             </button>
           )}
           {activeRide.driver_completed && !activeRide.passenger_completed && (
             <p className="mt-3 text-xs text-amber-700">
-              Waiting for passenger confirmation to complete ride and release payment.
+              Waiting for passenger confirmation to finish the ride.
             </p>
           )}
         </article>
-      ) : (
+      ) : hasLocation ? (
         <>
           <div>
             <h2 className="text-xl font-bold text-slate-950">Available Nearby Rides</h2>
             <p className="mt-1 text-sm text-slate-600">
               Review requests within {MAX_DISTANCE_KM} km, then accept or reject them.
-            </p>
-            <p className="mt-2 text-xs text-cyan-700">
-              Payments are locked in an Algorand smart contract escrow and released
-              automatically after ride completion.
             </p>
           </div>
           {rides.length === 0 ? (
@@ -272,10 +232,10 @@ export default function RealtimeRideList({
                     <button
                       type="button"
                       onClick={() => void handleAcceptRide(ride.id)}
-                      disabled={Boolean(isBusy || blockedByActiveRide || !driverWalletAddress)}
+                      disabled={isBusy || accepting || needsWallet}
                       className="rounded-lg bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Accept
+                      {accepting ? "Accepting…" : "Accept"}
                     </button>
                     <button
                       type="button"
@@ -286,10 +246,7 @@ export default function RealtimeRideList({
                       Reject
                     </button>
                   </div>
-                  {blockedByActiveRide && (
-                    <p className="mt-2 text-xs text-amber-700">Finish your current ride first</p>
-                  )}
-                  {!driverWalletAddress && (
+                  {needsWallet && (
                     <p className="mt-2 text-xs text-amber-700">Connect wallet before accepting rides</p>
                   )}
                 </article>
@@ -297,6 +254,19 @@ export default function RealtimeRideList({
             </div>
           )}
         </>
+      ) : null}
+      {history.length > 0 && (
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h3 className="text-sm font-semibold text-slate-800">Recent rides</h3>
+          <ul className="mt-2 divide-y divide-slate-100 text-sm text-slate-600">
+            {history.map((ride) => (
+              <li key={ride.id} className="flex justify-between gap-3 py-2">
+                <span>{ride.pickup_place_name ?? "Pickup"} → {ride.destination_place_name ?? "Destination"}</span>
+                <span className="capitalize">{ride.status}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

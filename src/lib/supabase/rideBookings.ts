@@ -4,6 +4,7 @@
  */
 
 import { createClient } from "@/lib/supabase/client";
+import { ESCROW_PAYMENTS_ENABLED } from "@/lib/algorand/escrow";
 import type { RideBookingRow } from "@/types";
 
 // Create the client when a ride operation runs, so public pages can render before setup.
@@ -39,7 +40,7 @@ export function haversineDistanceKm(
  */
 export async function createRideBooking(input: {
   passengerId: string;
-  passengerWallet: string;
+  passengerWallet: string | null;
   originLat: number;
   originLng: number;
   destinationLat: number;
@@ -47,7 +48,7 @@ export async function createRideBooking(input: {
   pickupPlaceName?: string | null;
   destinationPlaceName?: string | null;
 }): Promise<RideBookingRow> {
-  if (!input.passengerWallet) {
+  if (ESCROW_PAYMENTS_ENABLED && !input.passengerWallet) {
     throw new Error("Connect wallet before booking a ride");
   }
 
@@ -86,9 +87,9 @@ export async function createRideBooking(input: {
 export async function acceptRide(
   rideId: string,
   driverId: string,
-  driverWallet: string
+  driverWallet: string | null
 ): Promise<RideBookingRow> {
-  if (!driverWallet) {
+  if (ESCROW_PAYMENTS_ENABLED && !driverWallet) {
     throw new Error("Connect wallet before accepting rides");
   }
 
@@ -104,7 +105,7 @@ export async function acceptRide(
       driver_wallet: driverWallet,
       passenger_completed: false,
       driver_completed: false,
-      escrow_state: "pending_lock",
+      escrow_state: ESCROW_PAYMENTS_ENABLED ? "pending_lock" : "none",
     })
     .eq("id", rideId)
     .eq("status", "waiting") // Only accept if still waiting (prevents double-accept)
@@ -133,7 +134,8 @@ export async function acceptRide(
  */
 export function subscribeToRideBookings(
   onInsert: (ride: RideBookingRow) => void,
-  onUpdate?: (ride: RideBookingRow) => void
+  onUpdate?: (ride: RideBookingRow) => void,
+  onReady?: () => void,
 ): () => void {
   const channel = createClient().channel("ride_bookings_realtime")
     .on(
@@ -166,7 +168,9 @@ export function subscribeToRideBookings(
         }
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") onReady?.();
+    });
 
   return () => {
     createClient().removeChannel(channel);
@@ -179,7 +183,8 @@ export function subscribeToRideBookings(
  */
 export function subscribeToMyRideBookings(
   passengerId: string,
-  onUpdate: (ride: RideBookingRow) => void
+  onUpdate: (ride: RideBookingRow) => void,
+  onReady?: () => void,
 ): () => void {
   const channel = createClient().channel("my_ride_bookings_realtime")
     .on(
@@ -208,7 +213,9 @@ export function subscribeToMyRideBookings(
         onUpdate(ride);
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") onReady?.();
+    });
 
   return () => {
     createClient().removeChannel(channel);
@@ -310,7 +317,8 @@ export async function fetchDriverRideHistory(driverId: string): Promise<RideBook
     .select("*")
     .eq("driver_id", driverId)
     .in("status", ["completed", "cancelled"])
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(5);
 
   if (error) throw error;
   return (data ?? []) as RideBookingRow[];
@@ -319,7 +327,7 @@ export async function fetchDriverRideHistory(driverId: string): Promise<RideBook
 export async function markDriverCompleted(
   rideId: string,
   driverId: string
-): Promise<{ ride: RideBookingRow; shouldReleasePayment: boolean }> {
+): Promise<RideBookingRow> {
   const { data: updated, error: updateError } = await createClient().from("ride_bookings")
     .update({ driver_completed: true })
     .eq("id", rideId)
@@ -341,7 +349,7 @@ export async function markDriverCompleted(
 export async function markPassengerCompleted(
   rideId: string,
   passengerId: string
-): Promise<{ ride: RideBookingRow; shouldReleasePayment: boolean }> {
+): Promise<RideBookingRow> {
   const { data: updated, error: updateError } = await createClient().from("ride_bookings")
     .update({ passenger_completed: true })
     .eq("id", rideId)
@@ -362,9 +370,9 @@ export async function markPassengerCompleted(
 
 async function maybeFinalizeRideCompletion(
   ride: RideBookingRow
-): Promise<{ ride: RideBookingRow; shouldReleasePayment: boolean }> {
+): Promise<RideBookingRow> {
   if (!ride.driver_completed || !ride.passenger_completed) {
-    return { ride, shouldReleasePayment: false };
+    return ride;
   }
 
   const { data, error } = await createClient().from("ride_bookings")
@@ -376,52 +384,18 @@ async function maybeFinalizeRideCompletion(
 
   if (error) {
     if (error.code === "PGRST116") {
-      return { ride, shouldReleasePayment: false };
+      return (await fetchMyRideCompletion(ride.id)) ?? ride;
     }
     throw error;
   }
-  const completedRide = data as RideBookingRow;
-  return {
-    ride: completedRide,
-    shouldReleasePayment:
-      completedRide.escrow_state === "locked" && !completedRide.escrow_release_txn_id,
-  };
-}
-
-export async function markEscrowLocked(
-  rideId: string,
-  passengerId: string,
-  lockTxnId: string
-): Promise<RideBookingRow> {
-  const { data, error } = await createClient().from("ride_bookings")
-    .update({
-      escrow_state: "locked",
-      escrow_lock_txn_id: lockTxnId,
-    })
-    .eq("id", rideId)
-    .eq("passenger_id", passengerId)
-    .eq("status", "accepted")
-    .select("*")
-    .single();
-
-  if (error) throw error;
   return data as RideBookingRow;
 }
 
-export async function markEscrowReleased(
-  rideId: string,
-  releaseTxnId: string
-): Promise<RideBookingRow> {
-  const { data, error } = await createClient().from("ride_bookings")
-    .update({
-      escrow_state: "released",
-      escrow_release_txn_id: releaseTxnId,
-    })
+async function fetchMyRideCompletion(rideId: string) {
+  const { data } = await createClient().from("ride_bookings")
+    .select("*")
     .eq("id", rideId)
     .eq("status", "completed")
-    .select("*")
-    .single();
-
-  if (error) throw error;
-  return data as RideBookingRow;
+    .maybeSingle();
+  return data as RideBookingRow | null;
 }

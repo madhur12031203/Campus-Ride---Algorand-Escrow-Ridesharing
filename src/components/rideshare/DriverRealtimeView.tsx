@@ -1,5 +1,7 @@
 "use client";
 
+import { parseCoordinates } from "@/lib/coordinates";
+
 /**
  * Driver: Wrapper that captures driver location using Google Places Autocomplete,
  * then shows RealtimeRideList. Driver location is required for the 8 km distance filter (Haversine).
@@ -10,9 +12,10 @@ import RealtimeRideList from "./RealtimeRideList";
 import type { RideBookingRow } from "@/types";
 
 type DriverRealtimeViewProps = {
+  driverId: string;
   isBusy: boolean;
-  onCompleteRide: (ride: RideBookingRow) => Promise<void>;
-  paymentMessage?: string | null;
+  onCompleteRide: (ride: RideBookingRow) => Promise<RideBookingRow | undefined>;
+
   driverWalletAddress: string | null;
   onToast: (message: string, tone?: "success" | "info" | "error") => void;
 };
@@ -119,9 +122,9 @@ function LocationIcon() {
 }
 
 export default function DriverRealtimeView({
+  driverId,
   isBusy,
   onCompleteRide,
-  paymentMessage,
   driverWalletAddress,
   onToast,
 }: DriverRealtimeViewProps) {
@@ -239,13 +242,13 @@ export default function DriverRealtimeView({
   const isPlacesEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
 
   function handleManualLocation() {
-    const value = locationName.trim();
-    if (!value) {
-      setError("Enter your current location");
+    const point = parseCoordinates(locationName);
+    if (!point) {
+      setError("Enter valid coordinates as latitude, longitude, or use your current location.");
       return;
     }
-    setDriverLat(28.5355);
-    setDriverLng(77.391);
+    setDriverLat(point.lat);
+    setDriverLng(point.lng);
     setError(null);
     setSuggestions([]);
     setIsActive(false);
@@ -257,7 +260,7 @@ export default function DriverRealtimeView({
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           {!isPlacesEnabled && (
             <p className="mb-3 text-xs text-amber-700">
-              Google Maps key is missing, so manual driver location is enabled.
+              Enter coordinates as latitude, longitude or use your current location.
             </p>
           )}
           <p className="mb-3 text-sm font-medium text-slate-700">
@@ -272,7 +275,7 @@ export default function DriverRealtimeView({
                   value={locationName}
                   onFocus={() => setIsActive(true)}
                   onChange={(e) => setLocationName(e.target.value)}
-                  placeholder="Your current location"
+                  placeholder={isPlacesEnabled ? "Your current location" : "e.g. 28.5355, 77.391"}
                   className="w-full bg-transparent text-sm text-slate-950 placeholder-slate-400 outline-none"
                   disabled={isLoadingPlaceDetails}
                   autoComplete="off"
@@ -294,15 +297,25 @@ export default function DriverRealtimeView({
               </div>
             )}
           </div>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={isPlacesEnabled ? handleUseMyLocation : handleManualLocation}
+              onClick={handleUseMyLocation}
               disabled={isLoadingPlaceDetails}
               className="w-full rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50"
             >
-              {isLoadingPlaceDetails ? "Loading..." : isPlacesEnabled ? "Use my location" : "Continue"}
+              {isLoadingPlaceDetails ? "Loading..." : "Use my location"}
             </button>
+            {!isPlacesEnabled && (
+              <button
+                type="button"
+                onClick={handleManualLocation}
+                disabled={isLoadingPlaceDetails}
+                className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-50"
+              >
+                Use entered coordinates
+              </button>
+            )}
           </div>
           {error && (
             <p className="mt-2 text-sm text-rose-700">{error}</p>
@@ -326,17 +339,18 @@ export default function DriverRealtimeView({
               Change
             </button>
           </div>
-          <RealtimeRideList
-            driverLat={driverLat}
-            driverLng={driverLng}
-            isBusy={isBusy}
-            onCompleteRide={onCompleteRide}
-            paymentMessage={paymentMessage}
-            driverWalletAddress={driverWalletAddress}
-            onToast={onToast}
-          />
         </>
       )}
+      <RealtimeRideList
+        key={driverId}
+        driverId={driverId}
+        driverLat={driverLat}
+        driverLng={driverLng}
+        isBusy={isBusy}
+        onCompleteRide={onCompleteRide}
+        driverWalletAddress={driverWalletAddress}
+        onToast={onToast}
+      />
     </div>
   );
 }

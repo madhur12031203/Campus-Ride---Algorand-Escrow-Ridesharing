@@ -42,7 +42,6 @@ export default function Dashboard() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isSignedIn, setIsSignedIn] = useState(false);
 
-  const appAddress = process.env.NEXT_PUBLIC_RIDE_ESCROW_APP_ADDRESS ?? "";
 
   useEffect(() => {
     try {
@@ -186,7 +185,7 @@ export default function Dashboard() {
             <div className="px-3 py-2">
               <p className="text-[11px] uppercase text-slate-500">Wallet</p>
               <p className="text-sm font-semibold text-cyan-700">
-                {walletAddress ? "Live" : "Needed"}
+                {walletAddress ? "Connected" : "Optional"}
               </p>
             </div>
           </div>
@@ -208,14 +207,9 @@ export default function Dashboard() {
               </p>
             </div>
             <p className="mb-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
-              Testnet project: escrow payments are unavailable until the
-              contract integration is completed. No payments will be sent from
-              this dashboard.
+              You can request and accept rides without a wallet. Testnet escrow payments are disabled.
             </p>
-            <CoreRideSharePanel
-              walletAddress={walletAddress}
-              appAddress={appAddress}
-            />
+            <CoreRideSharePanel walletAddress={walletAddress} />
           </section>
 
           <aside className="space-y-5">

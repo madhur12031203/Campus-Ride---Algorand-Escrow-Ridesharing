@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ESCROW_PAYMENTS_ENABLED, sendEscrowPayment } from "@/lib/algorand/escrow";
 import {
   fetchMyRideBookings,
-  markEscrowLocked,
   subscribeToMyRideBookings,
 } from "@/lib/supabase/rideBookings";
 import type { RideBookingRow } from "@/types";
@@ -12,14 +10,30 @@ import type { RideBookingRow } from "@/types";
 type PassengerRideStatusProps = {
   passengerId: string;
   isBusy: boolean;
-  onCompleteRide: (ride: RideBookingRow) => Promise<void>;
-  paymentMessage?: string | null;
-  walletAddress: string | null;
-  appAddress: string;
-  onToast: (message: string, tone?: "success" | "info" | "error") => void;
+  onCompleteRide: (ride: RideBookingRow) => Promise<RideBookingRow | undefined>;
+  latestRide: RideBookingRow | null;
+  onActiveRideChange: (hasActiveRide: boolean) => void;
 };
 
 const ACTIVE_STATUSES: RideBookingRow["status"][] = ["waiting", "accepted"];
+
+function mergeRideUpdate(rides: RideBookingRow[], update: RideBookingRow) {
+  const current = rides.find((ride) => ride.id === update.id);
+  if (!current) return [update, ...rides];
+  // A request response can arrive after a newer realtime update for the same ride.
+  if (!ACTIVE_STATUSES.includes(current.status) || (current.status === "accepted" && update.status === "waiting")) {
+    return rides;
+  }
+  return rides.map((ride) =>
+    ride.id === update.id
+      ? {
+          ...update,
+          passenger_completed: ride.passenger_completed || update.passenger_completed,
+          driver_completed: ride.driver_completed || update.driver_completed,
+        }
+      : ride,
+  );
+}
 
 function StatusBadge({ status }: { status: RideBookingRow["status"] }) {
   const colors = {
@@ -40,41 +54,53 @@ export default function PassengerRideStatus({
   passengerId,
   isBusy,
   onCompleteRide,
-  paymentMessage,
-  walletAddress,
-  appAddress,
-  onToast,
+  latestRide,
+  onActiveRideChange,
 }: PassengerRideStatusProps) {
   const [rides, setRides] = useState<RideBookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lockingRideId, setLockingRideId] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
-    fetchMyRideBookings(passengerId)
-      .then((data) => setRides(data))
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load rides"))
-      .finally(() => setLoading(false));
-  }, [onToast, passengerId]);
+    setError(null);
+    const refresh = () => {
+      void fetchMyRideBookings(passengerId)
+        .then((data) => {
+          if (active) {
+            setError(null);
+            setRides((previous) => data.reduce(mergeRideUpdate, previous));
+          }
+        })
+        .catch(() => {
+          if (active) setError("Could not load your rides. Refresh to try again.");
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    };
+    const unsubscribe = subscribeToMyRideBookings(
+      passengerId,
+      (ride) => {
+        if (active) setRides((previous) => mergeRideUpdate(previous, ride));
+      },
+      refresh,
+    );
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      unsubscribe();
+      window.removeEventListener("focus", refresh);
+    };
+  }, [passengerId]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToMyRideBookings(passengerId, (ride) => {
-      setRides((prev) => {
-        const exists = prev.some((value) => value.id === ride.id);
-        if (exists) {
-          const current = prev.find((value) => value.id === ride.id);
-          if (current && current.status !== "accepted" && ride.status === "accepted") {
-            onToast("Ride accepted", "success");
-          }
-          return prev.map((value) => (value.id === ride.id ? ride : value));
-        }
-        return [ride, ...prev];
-      });
-    });
-
-    return unsubscribe;
-  }, [onToast, passengerId]);
+    if (latestRide?.passenger_id === passengerId) {
+      setRides((previous) => mergeRideUpdate(previous, latestRide));
+    }
+  }, [latestRide, passengerId]);
 
   const activeRide = useMemo(() => {
     const candidates = rides
@@ -92,33 +118,8 @@ export default function PassengerRideStatus({
   );
 
   useEffect(() => {
-    if (!ESCROW_PAYMENTS_ENABLED) return;
-    if (!activeRide || activeRide.status !== "accepted") return;
-    if (activeRide.escrow_state !== "pending_lock") return;
-    if (!walletAddress || walletAddress !== activeRide.passenger_wallet) return;
-    if (lockingRideId === activeRide.id) return;
-    if (!appAddress) return;
-
-    setLockingRideId(activeRide.id);
-    void (async () => {
-      try {
-        const txnId = await sendEscrowPayment({
-          senderAddress: walletAddress,
-          appAddress,
-          fare: 60,
-        });
-        await markEscrowLocked(activeRide.id, passengerId, txnId);
-        onToast("Escrow locked", "success");
-      } catch (lockError) {
-        const message =
-          lockError instanceof Error ? lockError.message : "Failed to lock escrow";
-        setError(message);
-        onToast("Escrow lock failed", "error");
-      } finally {
-        setLockingRideId(null);
-      }
-    })();
-  }, [activeRide, appAddress, lockingRideId, onToast, passengerId, walletAddress]);
+    if (!loading && !error) onActiveRideChange(Boolean(activeRide));
+  }, [activeRide, error, loading, onActiveRideChange]);
 
   if (loading) {
     return (
@@ -145,11 +146,6 @@ export default function PassengerRideStatus({
       <h3 className="text-sm font-semibold text-slate-800">
         {activeRide ? "Current Active Ride" : "Ride History"}
       </h3>
-      {paymentMessage && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
-          {paymentMessage}
-        </div>
-      )}
       {activeRide ? (
         <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
@@ -168,13 +164,6 @@ export default function PassengerRideStatus({
               {activeRide.destination_place_name || "Destination location"}
             </p>
           </div>
-          <p className="mt-2 text-xs text-slate-600">
-            {activeRide.escrow_state === "locked"
-              ? "Escrow marked locked in ride records"
-              : activeRide.escrow_state === "released"
-                ? "Escrow marked released in ride records"
-                : "Escrow payments are currently unavailable"}
-          </p>
           {activeRide.status === "accepted" && !activeRide.passenger_completed && (
               <button
                 type="button"
@@ -182,15 +171,8 @@ export default function PassengerRideStatus({
                 disabled={isBusy}
                 className="mt-3 w-full rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Complete Ride
+                Confirm completion
               </button>
-            )}
-          {ESCROW_PAYMENTS_ENABLED && activeRide.status === "accepted" &&
-            activeRide.escrow_state === "pending_lock" &&
-            (!walletAddress || walletAddress !== activeRide.passenger_wallet) && (
-              <p className="mt-2 text-xs text-amber-700">
-                Connect the passenger wallet used for booking to lock escrow.
-              </p>
             )}
           {activeRide.status === "accepted" &&
             activeRide.passenger_completed &&
