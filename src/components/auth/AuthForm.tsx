@@ -52,6 +52,8 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
       setError(accountServiceMessages[failure]);
     } else if (failure === "callback") {
       setError("Sign-in could not be completed. Start again from this page and use the same browser.");
+    } else if (failure === "profile") {
+      setError("Your sign-in succeeded, but your ride profile could not load. Please try again.");
     }
   }, []);
 

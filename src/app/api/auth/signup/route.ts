@@ -1,9 +1,7 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import {
-  getSupabaseServiceRoleKey,
-  getSupabaseUrl,
-} from "@/lib/supabase/env";
+import { createAccountAdminClient, ensureAccountProfile } from "@/lib/supabase/account-profile";
+import { parseRideRole } from "@/lib/ride-roles";
 
 type SignUpBody = {
   email?: string;
@@ -11,8 +9,6 @@ type SignUpBody = {
   name?: string;
   role?: string;
 };
-
-const VALID_ROLES = new Set(["driver", "passenger"]);
 
 async function findUserByEmail(
   supabase: SupabaseClient,
@@ -50,7 +46,7 @@ export async function POST(request: Request) {
 
     const email = body.email?.trim().toLowerCase();
     const password = body.password ?? "";
-    const role = body.role;
+    const role = parseRideRole(body.role);
     const name = body.name?.trim() || email?.split("@")[0] || "Campus Rider";
 
     if (!email || !password || password.length < 6) {
@@ -60,16 +56,11 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!role || !VALID_ROLES.has(role)) {
+    if (!role) {
       return NextResponse.json({ error: "Invalid role." }, { status: 400 });
     }
 
-    const supabase = createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const supabase = createAccountAdminClient();
 
     const existingUser = await findUserByEmail(supabase, email);
 
@@ -93,18 +84,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error: profileError } = await supabase.from("users").upsert(
-      {
-        id: data.user.id,
-        name,
-        role,
-      },
-      { onConflict: "id" }
-    );
-
-    if (profileError) {
-      return NextResponse.json({ error: profileError.message }, { status: 500 });
-    }
+    await ensureAccountProfile(data.user, role);
 
     return NextResponse.json({ userId: data.user.id, existing: false });
   } catch (error) {

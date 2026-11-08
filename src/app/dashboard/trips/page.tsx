@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import RideIcon from "@/components/RideIcon";
-import { useWorkspaceUser } from "@/components/workspace/Workspace";
+import { useWorkspaceRole, useWorkspaceUser } from "@/components/workspace/Workspace";
+import { rideDeskPath } from "@/lib/ride-roles";
 import { fetchRideActivity } from "@/lib/supabase/rideBookings";
 import type { RideBookingRow } from "@/types";
 
@@ -16,6 +17,7 @@ const statusLabels: Record<RideBookingRow["status"], string> = {
 
 export default function TripsPage() {
   const userId = useWorkspaceUser()?.id;
+  const role = useWorkspaceRole();
   const [rides, setRides] = useState<RideBookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -96,7 +98,7 @@ export default function TripsPage() {
                 : "No trips in this view."}
             </h2>
             <p>Head to the ride desk to request or accept a ride.</p>
-            <Link className="ride-button" href="/dashboard/book">
+            <Link className="ride-button" href={role ? rideDeskPath(role) : "/dashboard"}>
               Go to ride desk <RideIcon name="arrow" />
             </Link>
           </div>

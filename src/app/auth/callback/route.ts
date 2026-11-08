@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { getAccountServiceFailure } from "@/lib/supabase/auth-errors";
+import { ensureAccountProfile } from "@/lib/supabase/account-profile";
+import { parseRideRole, rideDeskPath } from "@/lib/ride-roles";
 import { getSupabasePublishableKey, getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -14,10 +16,9 @@ function redirectToPath(path: string) {
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const selectedRole = requestUrl.searchParams.get("role");
-  const role = selectedRole === "driver" || selectedRole === "passenger" ? selectedRole : null;
+  const role = parseRideRole(requestUrl.searchParams.get("role"));
 
-  const fail = (reason: "callback" | "connection" | "response" | "cancelled") => {
+  const fail = (reason: "callback" | "connection" | "response" | "cancelled" | "profile") => {
     const login = role === "driver" ? "/login/driver" : "/login/passenger";
     return redirectToPath(login + "?" + new URLSearchParams({ error: reason }));
   };
@@ -64,21 +65,10 @@ export async function GET(request: Request) {
 
   if (!user) return fail(getAccountServiceFailure(userError) ?? "callback");
 
-  const name =
-    (user.user_metadata?.full_name as string | undefined) ??
-    (user.email ? user.email.split("@")[0] : "Campus Rider");
-
-  // Upsert user profile with role (only update role if provided)
-  const updateData: { id: string; name: string; role?: string } = {
-    id: user.id,
-    name,
-  };
-
-  if (role) {
-    updateData.role = role;
+  try {
+    const profile = await ensureAccountProfile(user, role);
+    return redirectToPath(profile.role ? rideDeskPath(profile.role) : "/dashboard");
+  } catch {
+    return fail("profile");
   }
-
-  await supabase.from("users").upsert(updateData, { onConflict: "id" });
-
-  return redirectToPath("/dashboard");
 }

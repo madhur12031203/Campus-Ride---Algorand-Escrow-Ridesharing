@@ -1,10 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { parseRideRole } from "@/lib/ride-roles";
+import {
+  ACCOUNT_PROFILE_COLUMNS,
+  createAccountAdminClient,
+  ensureAccountProfile,
+} from "@/lib/supabase/account-profile";
 import {
   getSupabasePublishableKey,
-  getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from "@/lib/supabase/env";
 
@@ -12,8 +16,6 @@ type ProfileBody = {
   role?: string | null;
   walletAddress?: string | null;
 };
-
-const VALID_ROLES = new Set(["driver", "passenger"]);
 
 async function getAuthUser() {
   const cookieStore = await cookies();
@@ -50,40 +52,12 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const serviceSupabase = createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  const name =
-    (user.user_metadata?.full_name as string | undefined) ??
-    (user.email ? user.email.split("@")[0] : "Campus Rider");
-
-  const { error: upsertError } = await serviceSupabase.from("users").upsert(
-    {
-      id: user.id,
-      name,
-    },
-    { onConflict: "id" }
-  );
-
-  if (upsertError) {
-    return NextResponse.json({ error: upsertError.message }, { status: 500 });
+  try {
+    const profile = await ensureAccountProfile(user);
+    return NextResponse.json({ profile });
+  } catch {
+    return NextResponse.json({ error: "Could not load your account profile." }, { status: 500 });
   }
-
-  const { data, error } = await serviceSupabase
-    .from("users")
-    .select("id,name,role,wallet_address,rating_avg,rating_count")
-    .eq("id", user.id)
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ profile: data });
 }
 
 export async function PATCH(request: Request) {
@@ -97,10 +71,11 @@ export async function PATCH(request: Request) {
   const updates: { role?: string; wallet_address?: string | null } = {};
 
   if (body.role !== undefined) {
-    if (!body.role || !VALID_ROLES.has(body.role)) {
+    const role = parseRideRole(body.role);
+    if (!role) {
       return NextResponse.json({ error: "Invalid role." }, { status: 400 });
     }
-    updates.role = body.role;
+    updates.role = role;
   }
 
   if (body.walletAddress !== undefined) {
@@ -111,23 +86,18 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "No profile updates provided." }, { status: 400 });
   }
 
-  const serviceSupabase = createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  const { data, error } = await serviceSupabase
-    .from("users")
-    .update(updates)
-    .eq("id", user.id)
-    .select("id,name,role,wallet_address,rating_avg,rating_count")
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const update = createAccountAdminClient().from("users").update(updates).eq("id", user.id);
+    if (updates.role) update.is("role", null);
+    const { data, error } = await update.select(ACCOUNT_PROFILE_COLUMNS).maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      return updates.role
+        ? NextResponse.json({ error: "Your account role is already set." }, { status: 409 })
+        : NextResponse.json({ error: "Account profile not found." }, { status: 404 });
+    }
+    return NextResponse.json({ profile: data });
+  } catch {
+    return NextResponse.json({ error: "Could not update your account profile." }, { status: 500 });
   }
-
-  return NextResponse.json({ profile: data });
 }

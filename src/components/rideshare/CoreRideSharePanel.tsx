@@ -6,24 +6,25 @@
  * Driver: Realtime list of nearby rides (≤8 km), no refresh
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import BookRideForm from "./BookRideForm";
 import DriverRealtimeView from "./DriverRealtimeView";
 import PassengerRideStatus from "./PassengerRideStatus";
-import RoleSelector from "./RoleSelector";
+
 import {
   createRideBooking,
-  fetchDriverActiveRide,
-  fetchPassengerActiveRide,
+
   markDriverCompleted,
   markPassengerCompleted,
 } from "@/lib/supabase/rideBookings";
 import { ESCROW_PAYMENTS_ENABLED } from "@/lib/algorand/escrow";
-import { ensureUserProfile, updateRole } from "@/lib/supabase/rideshare";
+
 import ToastStack from "@/components/ui/ToastStack";
-import type { RideBookingRow, UserProfileRow, UserRole } from "@/types";
+import type { RideBookingRow, UserRole } from "@/types";
 
 type CoreRideSharePanelProps = {
+  accountId: string;
+  role: UserRole;
   walletAddress?: string | null;
 };
 
@@ -45,18 +46,15 @@ type Toast = {
 };
 
 export default function CoreRideSharePanel({
+  accountId,
+  role,
   walletAddress,
 }: CoreRideSharePanelProps) {
-  const [profile, setProfile] = useState<UserProfileRow | null>(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isRoleSaving, setIsRoleSaving] = useState(false);
   const [lastRideUpdate, setLastRideUpdate] = useState<RideBookingRow | null>(null);
   const [passengerHasActiveRide, setPassengerHasActiveRide] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const role = profile?.role ?? null;
 
   const pushToast = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -65,57 +63,6 @@ export default function CoreRideSharePanel({
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 2600);
   }, []);
-
-  const refreshProfile = useCallback(async () => {
-    const next = await ensureUserProfile(walletAddress);
-    setProfile(next);
-    if (next?.role === "passenger") {
-      const activeRide = await fetchPassengerActiveRide(next.id);
-      setPassengerHasActiveRide(Boolean(activeRide));
-    } else {
-      setPassengerHasActiveRide(false);
-    }
-  }, [walletAddress]);
-
-  useEffect(() => {
-    setIsProfileLoading(true);
-    setError(null);
-    void refreshProfile()
-      .catch((err: unknown) => setError(getErrorMessage(err, "Failed to load profile")))
-      .finally(() => setIsProfileLoading(false));
-  }, [refreshProfile]);
-
-  const handlePickRole = useCallback(
-    async (nextRole: UserRole) => {
-      if (!profile) return;
-      setIsRoleSaving(true);
-      setError(null);
-      try {
-        if (role && role !== nextRole) {
-          const active = role === "driver"
-            ? await fetchDriverActiveRide(profile.id)
-            : await fetchPassengerActiveRide(profile.id);
-          if (active) {
-            setError("Finish your active ride before switching roles.");
-            return;
-          }
-        }
-        const nextProfile = await updateRole(profile.id, nextRole);
-        setProfile(nextProfile);
-        if (nextProfile.role === "passenger") {
-          const activeRide = await fetchPassengerActiveRide(nextProfile.id);
-          setPassengerHasActiveRide(Boolean(activeRide));
-        } else {
-          setPassengerHasActiveRide(false);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save role");
-      } finally {
-        setIsRoleSaving(false);
-      }
-    },
-    [profile, role]
-  );
 
   const handleBookRide = useCallback(
     async (input: {
@@ -126,7 +73,6 @@ export default function CoreRideSharePanel({
       pickupPlaceName?: string | null;
       destinationPlaceName?: string | null;
     }) => {
-      if (!profile?.id) return;
       if (ESCROW_PAYMENTS_ENABLED && !walletAddress) {
         throw new Error("Connect wallet before booking a ride");
       }
@@ -134,7 +80,7 @@ export default function CoreRideSharePanel({
       setError(null);
       try {
         const booking = await createRideBooking({
-          passengerId: profile.id,
+          passengerId: accountId,
           passengerWallet: walletAddress ?? null,
           ...input,
         });
@@ -148,17 +94,16 @@ export default function CoreRideSharePanel({
         setIsBusy(false);
       }
     },
-    [profile?.id, pushToast, walletAddress]
+    [accountId, pushToast, walletAddress]
   );
 
   const handleComplete = useCallback(
     async (ride: RideBookingRow) => {
-      if (!profile?.id || !role) return;
       setIsBusy(true);
       setError(null);
       try {
         const confirm = role === "driver" ? markDriverCompleted : markPassengerCompleted;
-        const updated = await confirm(ride.id, profile.id);
+        const updated = await confirm(ride.id, accountId);
         if (role === "passenger") {
           setLastRideUpdate(updated);
         }
@@ -174,43 +119,12 @@ export default function CoreRideSharePanel({
         setIsBusy(false);
       }
     },
-    [profile?.id, pushToast, role]
+    [accountId, pushToast, role]
   );
-
-  if (isProfileLoading) {
-    return (
-      <section className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
-        <p className="text-sm text-slate-600">Loading your ride profile...</p>
-      </section>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <section className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center">
-        <p className="text-sm text-amber-800">
-          {error || "We could not load your account. Refresh the page or sign in again."}
-        </p>
-      </section>
-    );
-  }
-
-  if (!role) {
-    return <RoleSelector onPickRole={handlePickRole} isSaving={isRoleSaving} />;
-  }
 
   return (
     <section className="space-y-4">
       <ToastStack toasts={toasts} />
-      <div className="trip-filters" aria-label="Ride role">
-        {(["passenger", "driver"] as const).map((option) => (
-          <button key={option} type="button" aria-pressed={role === option}
-            disabled={isBusy || isRoleSaving || role === option}
-            onClick={() => void handlePickRole(option)}>
-            {option === "passenger" ? "I need a ride" : "I’m driving"}
-          </button>
-        ))}
-      </div>
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
@@ -227,8 +141,8 @@ export default function CoreRideSharePanel({
             walletRequired={ESCROW_PAYMENTS_ENABLED && !walletAddress}
           />
           <PassengerRideStatus
-            key={profile.id}
-            passengerId={profile.id}
+            key={accountId}
+            passengerId={accountId}
             latestRide={lastRideUpdate}
             onActiveRideChange={setPassengerHasActiveRide}
             isBusy={isBusy}
@@ -245,7 +159,7 @@ export default function CoreRideSharePanel({
             </p>
           </div>
           <DriverRealtimeView
-            driverId={profile.id}
+            driverId={accountId}
             isBusy={isBusy}
             onCompleteRide={handleComplete}
             driverWalletAddress={walletAddress ?? null}

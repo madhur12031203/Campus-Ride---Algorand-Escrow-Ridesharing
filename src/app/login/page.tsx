@@ -11,8 +11,8 @@ export default function LoginPage() {
       <p className="workspace-kicker">GET STARTED</p>
       <h1 className="auth-choice-heading">How are you riding?</h1>
       <p className="auth-choice-detail">
-        Choose a role to sign in. You can switch at the ride desk when you have
-        no active ride.
+        Choose your account type to sign in. A new account keeps the role you
+        choose when you create it.
       </p>
       <div className="grid gap-3">
         <Link href="/login/passenger" className="workspace-action">

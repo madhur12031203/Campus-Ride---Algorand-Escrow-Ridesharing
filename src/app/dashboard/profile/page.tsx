@@ -5,6 +5,7 @@ import Link from "next/link";
 import RatingStars from "@/components/ui/RatingStars";
 import VerificationSection from "@/components/verification/VerificationSection";
 import { useWorkspaceUser } from "@/components/workspace/Workspace";
+import { rideDeskPath } from "@/lib/ride-roles";
 import { createClient } from "@/lib/supabase/client";
 import { ensureUserProfile } from "@/lib/supabase/rideshare";
 import type { UserProfileRow } from "@/types";
@@ -111,7 +112,7 @@ export default function ProfilePage() {
                   </dd>
                 </div>
               </dl>
-              <Link href="/dashboard/book" className="text-link">
+              <Link href={profile.role ? rideDeskPath(profile.role) : "/dashboard"} className="text-link">
                 Open ride desk ↗
               </Link>
             </section>
