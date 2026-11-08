@@ -47,7 +47,7 @@ Use Node.js 20.9 or newer and npm. Open [the local demo](http://localhost:3000/d
 
 ### Try a passenger and driver ride
 
-Use two browser profiles so each account has its own session. Connect Pera Wallet where the dashboard requires it for requesting or accepting a ride. Connecting a wallet does not send a payment.
+Use two browser profiles so each account has its own session. A wallet is optional while escrow payments are disabled. If Google Maps is unavailable, enter the pickup, destination, and driver location as latitude and longitude.
 
 1. Sign in as a passenger, enter a pickup and destination, and submit a ride request.
 2. Sign in as a driver in the other browser profile and set a location near the passenger's pickup. The driver view filters requests within 8 km.
