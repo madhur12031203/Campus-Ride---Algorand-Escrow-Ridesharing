@@ -1,6 +1,6 @@
 # Campus Ride
 
-Campus Ride is a campus ridesharing project for students who need a lift and drivers who have a seat to share. Passengers request a ride, nearby drivers can accept it, and both sides follow its progress from their dashboards. The site also estimates fares for Uber, Ola, and Rapido from the same route.
+Campus Ride is a campus ridesharing project for students who need a lift and drivers who have a seat to share. Passengers request a ride, nearby drivers can accept it, and both sides follow its progress from their dashboards.
 
 The repository contains two related projects. The **Next.js website** handles accounts, ride requests, and fare estimates. The **Algorand RideEscrow contract** implements an on-chain payment lifecycle and can be tested separately. **Website payments are currently disabled** while the contract is being integrated.
 
@@ -22,8 +22,11 @@ Use Node.js 20.9 or newer and npm. Open [the local demo](http://localhost:3000/d
 | `/` | Learn about Campus Ride and choose to find or offer a ride |
 | `/demo` | Explore the passenger and driver experience with sample data |
 | `/login` | Choose your role, then sign in or create an account |
-| `/dashboard` | Request or accept rides, follow their progress, and estimate fares |
-| `/profile` | See your account, ratings, and verification status |
+| `/dashboard` | Open the ride workspace |
+| `/dashboard/book` | Request or accept rides and follow the active trip |
+| `/dashboard/trips` | Filter your active and past rides |
+| `/dashboard/wallet` | Manage the optional Pera Wallet connection |
+| `/dashboard/profile` | See your account, ratings, and verification status |
 | `/admin/verifications` | Review submitted verification documents with an authorized account |
 
 ## Run with real accounts and ride data
@@ -54,7 +57,7 @@ Use two browser profiles so each account has its own session. A wallet is option
 3. Accept the request from the driver dashboard. The passenger sees the update through Supabase Realtime.
 4. Confirm completion from both dashboards. The website records the ride as completed in the database.
 
-The fare tool uses distance and duration from Google Routes with sample pricing formulas. Treat the results as estimates and check the actual price with the ride provider before booking.
+The legacy fare estimate API remains separate from the ride workspace.
 
 ## How the project fits together
 

@@ -249,6 +249,17 @@ export async function fetchMyRideBookings(passengerId: string): Promise<RideBook
   return (data ?? []) as RideBookingRow[];
 }
 
+export async function fetchRideActivity(userId: string): Promise<RideBookingRow[]> {
+  const { data, error } = await createClient()
+    .from("ride_bookings")
+    .select("*")
+    .or(`passenger_id.eq.${userId},driver_id.eq.${userId}`)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as RideBookingRow[];
+}
+
 export async function passengerHasActiveRide(passengerId: string): Promise<boolean> {
   const { data, error } = await createClient().from("ride_bookings")
     .select("id")

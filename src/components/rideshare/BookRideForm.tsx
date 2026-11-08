@@ -351,21 +351,18 @@ export default function BookRideForm({
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <div className="border-b border-slate-200 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-slate-950">Book a ride</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Set your pickup and destination, then request a ride from nearby drivers.
-          </p>
+          <span className="w-fit rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
+            Live matching
+          </span>
         </div>
-        <span className="w-fit rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
-          Live matching
-        </span>
-        {!isPlacesEnabled && (
-          <p className="text-xs text-amber-700 sm:max-w-xs sm:text-right">
-            Enter coordinates as latitude, longitude. Map search is unavailable.
-          </p>
-        )}
+        <p className="mt-1.5 text-sm text-slate-600">
+          {isPlacesEnabled
+            ? "Set your pickup and destination to request a ride from nearby drivers."
+            : "Map search is unavailable. Enter each location as latitude, longitude."}
+        </p>
       </div>
 
       <div className="relative">
@@ -373,7 +370,7 @@ export default function BookRideForm({
           <LocationIcon />
           <div className="flex-1">
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase text-slate-500">Pickup</span>
+              <label htmlFor="ride-pickup" className="text-xs font-semibold uppercase text-slate-500">Pickup</label>
               <button
                 type="button"
                 onClick={handleUseMyLocation}
@@ -384,6 +381,7 @@ export default function BookRideForm({
               </button>
             </div>
             <input
+              id="ride-pickup"
               type="text"
               value={origin}
               onFocus={() => setActiveField("origin")}
@@ -419,8 +417,9 @@ export default function BookRideForm({
         <div className="flex min-h-[72px] items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition focus-within:border-teal-400">
           <FlagIcon />
           <div className="flex-1">
-            <span className="text-xs font-semibold uppercase text-slate-500">Destination</span>
+            <label htmlFor="ride-destination" className="text-xs font-semibold uppercase text-slate-500">Destination</label>
             <input
+              id="ride-destination"
               type="text"
               value={destination}
               onFocus={() => setActiveField("destination")}

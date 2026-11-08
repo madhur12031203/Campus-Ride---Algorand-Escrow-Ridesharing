@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./ride-design.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "Campus Ride | Go together. Get there better.",
-  description: "Connect with your campus. Find shared rides, offer a seat, and compare estimated fares for a better everyday commute.",
+  title: "Campus Ride | Going the same way?",
+  description: "Request a pickup, offer a seat, and track your shared rides in one place.",
 };
 
 export default function RootLayout({

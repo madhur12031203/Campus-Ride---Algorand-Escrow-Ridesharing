@@ -13,6 +13,7 @@ import PassengerRideStatus from "./PassengerRideStatus";
 import RoleSelector from "./RoleSelector";
 import {
   createRideBooking,
+  fetchDriverActiveRide,
   fetchPassengerActiveRide,
   markDriverCompleted,
   markPassengerCompleted,
@@ -23,7 +24,7 @@ import ToastStack from "@/components/ui/ToastStack";
 import type { RideBookingRow, UserProfileRow, UserRole } from "@/types";
 
 type CoreRideSharePanelProps = {
-  walletAddress: string | null;
+  walletAddress?: string | null;
 };
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -90,6 +91,15 @@ export default function CoreRideSharePanel({
       setIsRoleSaving(true);
       setError(null);
       try {
+        if (role && role !== nextRole) {
+          const active = role === "driver"
+            ? await fetchDriverActiveRide(profile.id)
+            : await fetchPassengerActiveRide(profile.id);
+          if (active) {
+            setError("Finish your active ride before switching roles.");
+            return;
+          }
+        }
         const nextProfile = await updateRole(profile.id, nextRole);
         setProfile(nextProfile);
         if (nextProfile.role === "passenger") {
@@ -104,7 +114,7 @@ export default function CoreRideSharePanel({
         setIsRoleSaving(false);
       }
     },
-    [profile]
+    [profile, role]
   );
 
   const handleBookRide = useCallback(
@@ -125,7 +135,7 @@ export default function CoreRideSharePanel({
       try {
         const booking = await createRideBooking({
           passengerId: profile.id,
-          passengerWallet: walletAddress,
+          passengerWallet: walletAddress ?? null,
           ...input,
         });
         setPassengerHasActiveRide(true);
@@ -192,6 +202,15 @@ export default function CoreRideSharePanel({
   return (
     <section className="space-y-4">
       <ToastStack toasts={toasts} />
+      <div className="trip-filters" aria-label="Ride role">
+        {(["passenger", "driver"] as const).map((option) => (
+          <button key={option} type="button" aria-pressed={role === option}
+            disabled={isBusy || isRoleSaving || role === option}
+            onClick={() => void handlePickRole(option)}>
+            {option === "passenger" ? "I need a ride" : "I’m driving"}
+          </button>
+        ))}
+      </div>
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
@@ -200,13 +219,6 @@ export default function CoreRideSharePanel({
 
       {role === "passenger" ? (
         <div className="space-y-6">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-xs font-semibold uppercase text-emerald-700">Passenger dashboard</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-950">Request a campus ride</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Add pickup and drop locations, then nearby drivers can accept your request.
-            </p>
-          </div>
           <BookRideForm
             onBookRide={handleBookRide}
             isBusy={isBusy}
@@ -236,7 +248,7 @@ export default function CoreRideSharePanel({
             driverId={profile.id}
             isBusy={isBusy}
             onCompleteRide={handleComplete}
-            driverWalletAddress={walletAddress}
+            driverWalletAddress={walletAddress ?? null}
             onToast={pushToast}
           />
         </div>

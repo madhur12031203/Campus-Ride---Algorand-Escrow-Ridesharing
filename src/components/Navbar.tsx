@@ -1,11 +1,13 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
+  const isWorkspace = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   const [signedIn, setSignedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [open, setOpen] = useState(false);
@@ -42,12 +44,15 @@ export default function Navbar() {
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, []);
+  if (isWorkspace) {
+    return <a href="#main-content" className="skip-link">Skip to content</a>;
+  }
   return (
     <>
       <a href="#main-content" className="skip-link">
         Skip to content
       </a>
-      <header className="site-header">
+      <header className="site-header" data-home={pathname === "/"}>
         <nav className="site-container nav-inner" aria-label="Main navigation">
           <Link href="/" className="wordmark" aria-label="Campus Ride home">
             <span className="brand-icon">↗</span> campus<span>ride</span>
@@ -68,12 +73,12 @@ export default function Navbar() {
             onClick={() => setOpen(false)}
           >
             <Link href="/#how-it-works">How it works</Link>
-            <Link href="/#why-campus-ride">Why Campus Ride</Link>
-            <Link href="/about">About us</Link>
+            <Link href="/demo">Demo</Link>
+            <Link href="/about">About</Link>
             {signedIn ? (
               <>
                 <Link href="/dashboard">Dashboard</Link>
-                <Link href="/profile">Profile</Link>
+                <Link href="/dashboard/profile">Profile</Link>
                 {isAdmin && <Link href="/admin/verifications">Admin</Link>}
                 <button
                   className="nav-cta"

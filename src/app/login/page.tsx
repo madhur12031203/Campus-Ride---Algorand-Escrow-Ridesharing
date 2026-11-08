@@ -1,37 +1,44 @@
 import Link from "next/link";
+import AuthSplit from "@/components/auth/AuthSplit";
+import RideIcon from "@/components/RideIcon";
+
 export default function LoginPage() {
   return (
-    <main id="main-content" className="auth-page">
-      <div className="auth-intro enter">
-        <p className="eyebrow justify-center mb-4">THERE’S A SEAT FOR YOU</p>
-        <h1>Where will today take you?</h1>
-        <p>Choose how you’d like to travel. We’ll take it from here.</p>
-      </div>
-      <div className="role-options enter">
-        <Link href="/login/passenger" className="role-option">
-          <span className="step-icon">↗</span>
-          <h2>Find your ride.</h2>
-          <p>
-            Meet your campus on the move. Find available seats, compare fares,
-            and manage your journey.
-          </p>
-          <span className="text-link">Continue as a passenger ↗</span>
-        </Link>
-        <Link href="/login/driver" className="role-option">
-          <span className="step-icon">⇄</span>
-          <h2>Share your route.</h2>
-          <p>
-            Going that way anyway? Offer a seat, accept ride requests, and make
-            the trip together.
-          </p>
-          <span className="text-link">Continue as a driver ↗</span>
-        </Link>
-      </div>
-      <p className="text-center mt-9 text-xs text-[#7b8375]">
-        <Link href="/demo" className="text-link">
-          Just looking? Explore the demo →
-        </Link>
+    <AuthSplit
+      headline="The road ahead."
+      detail="A pickup, a spare seat, and a simpler way to share the ride."
+    >
+      <p className="workspace-kicker">GET STARTED</p>
+      <h1 className="auth-choice-heading">How are you riding?</h1>
+      <p className="auth-choice-detail">
+        Choose a role to sign in. You can switch at the ride desk when you have
+        no active ride.
       </p>
-    </main>
+      <div className="grid gap-3">
+        <Link href="/login/passenger" className="workspace-action">
+          <span className="workspace-action-icon">
+            <RideIcon name="pin" />
+          </span>
+          <span>
+            <strong>I need a ride</strong>
+            <small>Request a pickup and follow your trip.</small>
+          </span>
+          <RideIcon name="arrow" />
+        </Link>
+        <Link href="/login/driver" className="workspace-action">
+          <span className="workspace-action-icon">
+            <RideIcon name="car" />
+          </span>
+          <span>
+            <strong>I’m driving</strong>
+            <small>Find and accept nearby ride requests.</small>
+          </span>
+          <RideIcon name="arrow" />
+        </Link>
+      </div>
+      <Link href="/demo" className="text-link">
+        Explore the demo first ↗
+      </Link>
+    </AuthSplit>
   );
 }
