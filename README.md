@@ -1,106 +1,43 @@
-# Campus Ride - Algorand Escrow Ridesharing
+# Campus Ride
 
-## Project Title And Description
-Campus Ride is a mobile-first campus ride-sharing web app built with Next.js, Supabase Realtime, and Algorand.
-It connects passengers and drivers in real time, locks payments in Algorand escrow, and releases funds automatically when rides are completed.
+Campus Ride helps students request or offer rides and compare estimated fares. Start at the homepage to choose a role, or open the demo to see both sides of the ride flow with sample data.
 
-## Problem Statement / Original Idea
-Students need a safer and more transparent intra-campus ride coordination system than ad-hoc messaging groups.
-This project solves that by combining:
-- realtime matching (Supabase),
-- wallet-based identity + trust (Pera Wallet),
-- programmable settlement guarantees (Algorand escrow).
+| Page | Purpose |
+| --- | --- |
+| `/` | Public homepage and project overview |
+| `/login` | Choose passenger or driver, then sign in or create an account |
+| `/dashboard` | Signed-in ride requests, driver tools, and fare estimates |
+| `/demo` | Explore sample passenger and driver views without an account |
+| `/profile` | Manage your profile and verification |
 
-## Live Demo URL
-https://rift-noida-fullstack.vercel.app/
+## Run locally
 
-## LinkedIn Demo Video URL
-https://www.linkedin.com/posts/madhur-gupta1203_rifthackathon-moneymulingdetection-financialcrime-activity-7430422813305614336-8iSN?utm_source=share&utm_medium=member_android&rcm=ACoAAFK7xuEBQMXCrMSg9K9q_jFxHAzCMCRf5dM
-
-## App ID (Testnet) And Explorer Link
-- Algorand Testnet App ID: 755776791
-- App Address: `GLYCD2SYQTCIBJFCCHBFDFLILGB5YLV5DNLOPOFKVYSJ7A67UCNJJTTQ2Q`
-
-## Architecture Overview
-1. Passenger signs in, connects Pera Wallet, and books a ride (`status = waiting`).
-2. Driver receives ride in realtime and accepts (`status = accepted`, `driver_id`, `driver_wallet` set).
-3. Passenger wallet sends ALGO to escrow app address; ride escrow state becomes `locked`.
-4. Passenger or driver taps `Complete Ride`.
-5. Smart-contract release path triggers payout to assigned driver wallet and marks ride `completed`.
-6. Ride becomes non-active; both users can start a new ride.
-
-Data + coordination:
-- Supabase Postgres (`ride_bookings`, `users`, `driver_vehicles`, `ratings`)
-- Supabase Realtime subscriptions for ride lifecycle updates.
-
-Trust + settlement:
-- Algorand Testnet escrow app + Pera Wallet signatures.
-
-## Tech Stack
-- Frontend: Next.js App Router, React, TypeScript, Tailwind CSS
-- Backend/Data: Supabase Auth, Postgres, Realtime, RLS
-- Blockchain: Algorand Testnet
-- Wallet: Pera Wallet (`@perawallet/connect`)
-- Smart Contract Tooling: AlgoKit + Python contract project in `ride-escrow/`
-
-## Installation And Setup
-### 1. Clone
-```bash
-git clone https://github.com/madhur12031203/rift-noida-fullstack.git
-cd RIFT/Rift-noida
-```
-
-### 2. Install Dependencies
-```bash
-npm install
-```
-
-### 3. Configure Environment
-Create `.env.local` with:
-```env
-NEXT_PUBLIC_RIDE_ESCROW_APP_ID=755776791
-NEXT_PUBLIC_RIDE_ESCROW_APP_ADDRESS=GLYCD2SYQTCIBJFCCHBFDFLILGB5YLV5DNLOPOFKVYSJ7A67UCNJJTTQ2Q
-
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-ADMIN_EMAILS=admin@example.com
-
-GEMINI_API_KEY=your-gemini-api-key
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-browser-key
-```
-
-Never commit real `.env.local` values. Keep production secrets in Vercel Environment Variables.
-
-### 4. Apply Database Migrations
-```bash
-supabase db push
-```
-
-### 5. Run The App
-```bash
+```sh
+npm ci
 npm run dev
 ```
 
-### 6. Production Build Check
-```bash
-npm run build
-```
+Open `http://localhost:3000`. The public pages and demo work without credentials. For real accounts and ride data, copy `.env.example` to `.env.local`, fill in your Supabase settings, and apply the SQL migrations in `supabase/migrations/` to your development database. Add the Google Maps server key for route lookup and fare estimates. Keep the Supabase service role key on the server.
 
-## Usage Guide
-1. Login as passenger, connect wallet, book a ride.
-2. Login as driver on a second laptop/session, connect wallet, and accept the ride.
-3. Passenger sees accepted status and escrow lock confirmation.
-4. Passenger/driver completes the ride; payment releases.
+Enable the Google provider in Supabase if you want Google sign-in. Allow the site's `/auth/callback` URL in Supabase's redirect settings, including the role or recovery query used by the app. Keep `NEXT_PUBLIC_SITE_URL` consistent with the site where sign-in starts.
 
-## Known Limitations
-- Escrow release path in frontend is demo-safe and should be replaced with full ARC client call in production.
-- Google Places requires an API key; without it, location search is gracefully disabled.
-- Current explorer/status text is UI-level; deeper on-chain event indexing is not yet implemented.
-- Notification system is in-app toast only.
+## Where the code lives
 
-## Team Members And Roles
-- `<TEAM_MEMBER_1>` - Smart contract, AlgoKit integration, testing, and deployment
-- `<TEAM_MEMBER_2>` - Frontend, realtime ride UX, Supabase schema, RLS, API routes, and product demo
+| Folder | What's inside |
+| --- | --- |
+| `src/app/` | Pages and server endpoints |
+| `src/components/` | Interface, forms, and ride panels |
+| `src/lib/` | Database access, fare estimates, maps, and the escrow boundary |
+| `supabase/migrations/` | Database tables, rules, and realtime configuration |
+| `smart_contracts/` | Canonical Algorand contract source, deployment code, and generated artifacts |
+| `tests/` | Contract tests, including a suite that requires Algorand LocalNet |
+
+Older local copies in `ride-escrow/` and `ride-escrow-backup/` are ignored. Contract work belongs in `smart_contracts/`. See [DESIGN.md](DESIGN.md) for the contract lifecycle.
+
+Fare comparisons use sample pricing formulas. The website's escrow payments are disabled until the frontend calls the contract's deposit and release methods and verifies their confirmations. A database ride status does not prove that a payment settled.
+
+Run `npm run build` to check the website. The contract tests have separate Python and LocalNet requirements.
+
+## Project credit
+
+Campus Ride was created by **Madhur Gupta**, including the website, the ride coordination flow, and the Algorand escrow contract.

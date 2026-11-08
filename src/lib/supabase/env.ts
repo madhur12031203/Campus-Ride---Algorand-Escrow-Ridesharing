@@ -1,3 +1,12 @@
+export function isSupabaseConfigured(): boolean {
+  try {
+    const url = getSupabaseUrl();
+    const key = getSupabasePublishableKey();
+    return !url.includes("your-project") && !url.includes("placeholder") && !key.startsWith("your-");
+  } catch {
+    return false;
+  }
+}
 export function getSupabaseUrl() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 

@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase/env";
+import { getSupabasePublishableKey, getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   const selectedRole = requestUrl.searchParams.get("role");
   const role = selectedRole === "driver" || selectedRole === "passenger" ? selectedRole : null;
 
+  if (!isSupabaseConfigured()) return NextResponse.redirect(new URL("/login", request.url));
   const cookieStore = await cookies();
   const supabase = createServerClient(
     getSupabaseUrl(),
@@ -33,7 +34,11 @@ export async function GET(request: Request) {
 
   if (code) {
     // Handle OAuth callback
-    await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) return NextResponse.redirect(new URL("/login?error=callback", request.url));
+    if (requestUrl.searchParams.get("mode") === "recovery") {
+      return NextResponse.redirect(new URL("/auth/reset-password", request.url));
+    }
   }
 
   // Get current user (works for both OAuth and email/password)
@@ -59,5 +64,5 @@ export async function GET(request: Request) {
     await supabase.from("users").upsert(updateData, { onConflict: "id" });
   }
 
-  return NextResponse.redirect(requestUrl.origin);
+  return NextResponse.redirect(new URL(user ? "/dashboard" : "/login", request.url));
 }

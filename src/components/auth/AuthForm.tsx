@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -121,10 +123,22 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
     }
   }
 
+  if (!isSupabaseConfigured()) {
+    return (
+      <section className="auth-card">
+        <h1 className="text-2xl font-semibold">{title} sign-in</h1>
+        <p className="my-4 text-sm text-slate-600">
+          Account services are not configured. You can explore the ride flow with sample data.
+        </p>
+        <Link className="button-primary" href="/demo">Explore demo →</Link>
+      </section>
+    );
+  }
+
   return (
     <div className="auth-card rounded-lg border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur sm:p-8">
       <div className={`mb-4 h-1.5 w-14 rounded-full ${accentClass}`} />
-      <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">{title}</h2>
+      <h1 className="text-xl font-semibold text-slate-100 sm:text-2xl">{title}</h1>
       <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
 
       {/* Toggle between Sign Up and Sign In */}
@@ -167,7 +181,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
               Full Name
             </label>
             <input
-              id="name"
+              id="name" autoComplete="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -184,7 +198,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
             Email
           </label>
           <input
-            id="email"
+            id="email" autoComplete="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -212,7 +226,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
                     const supabase = createClient();
                     const baseUrl = getAuthBaseUrl();
                     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                      redirectTo: `${baseUrl}/auth/reset-password`,
+                      redirectTo: `${baseUrl}/auth/callback?mode=recovery`,
                     });
                     if (error) throw error;
                     setError(null);
@@ -228,7 +242,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
             )}
           </div>
           <input
-            id="password"
+            id="password" autoComplete={isSignUp ? "new-password" : "current-password"}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -297,7 +311,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
 
       {isSignUp && (
         <p className="mt-4 text-center text-xs text-slate-400">
-          By signing up, you agree to our Terms of Service and Privacy Policy
+          This project uses a development network. Do not use real payment details.
         </p>
       )}
     </div>

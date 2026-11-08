@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { sendEscrowPayment } from "@/lib/algorand/escrow";
+import { ESCROW_PAYMENTS_ENABLED, sendEscrowPayment } from "@/lib/algorand/escrow";
 import {
   fetchMyRideBookings,
   markEscrowLocked,
@@ -92,6 +92,7 @@ export default function PassengerRideStatus({
   );
 
   useEffect(() => {
+    if (!ESCROW_PAYMENTS_ENABLED) return;
     if (!activeRide || activeRide.status !== "accepted") return;
     if (activeRide.escrow_state !== "pending_lock") return;
     if (!walletAddress || walletAddress !== activeRide.passenger_wallet) return;
@@ -169,10 +170,10 @@ export default function PassengerRideStatus({
           </div>
           <p className="mt-2 text-xs text-slate-600">
             {activeRide.escrow_state === "locked"
-              ? "Funds locked on Algorand"
+              ? "Escrow marked locked in ride records"
               : activeRide.escrow_state === "released"
-                ? "Payment released on completion"
-                : "Escrow will lock as soon as driver accepts your ride"}
+                ? "Escrow marked released in ride records"
+                : "Escrow payments are currently unavailable"}
           </p>
           {activeRide.status === "accepted" && !activeRide.passenger_completed && (
               <button
@@ -184,7 +185,7 @@ export default function PassengerRideStatus({
                 Complete Ride
               </button>
             )}
-          {activeRide.status === "accepted" &&
+          {ESCROW_PAYMENTS_ENABLED && activeRide.status === "accepted" &&
             activeRide.escrow_state === "pending_lock" &&
             (!walletAddress || walletAddress !== activeRide.passenger_wallet) && (
               <p className="mt-2 text-xs text-amber-700">
@@ -195,7 +196,7 @@ export default function PassengerRideStatus({
             activeRide.passenger_completed &&
             !activeRide.driver_completed && (
               <p className="mt-3 text-xs text-amber-700">
-                Waiting for driver confirmation to finish ride and release payment.
+                Waiting for driver confirmation to finish the ride.
               </p>
             )}
         </article>

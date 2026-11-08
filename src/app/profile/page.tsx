@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const [authUser, setAuthUser] = useState<{ email?: string } | null>(null);
 
   useEffect(() => {
+    try {
     const supabase = createClient();
     void supabase.auth.getUser().then(({ data }) => {
       if (!data.user) {
@@ -36,8 +37,9 @@ export default function ProfilePage() {
         return;
       }
       setAuthUser(data.user);
-      loadProfile(data.user.id);
-    });
+      void loadProfile(data.user.id);
+    }).catch(() => router.replace("/login"));
+    } catch { router.replace("/login"); }
   }, [router]);
 
   async function loadProfile(userId: string) {
