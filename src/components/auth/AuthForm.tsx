@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 
 type AuthFormProps = {
   role: "driver" | "passenger";
@@ -23,34 +22,46 @@ async function readJsonResponse(response: Response): Promise<{ error?: string }>
     return {
       error: response.ok
         ? "Received an invalid response from the server."
-        : text.slice(0, 200) || "Unable to create account.",
+        : "Unable to reach account registration. Please try again later.",
     };
   }
 }
 
 export default function AuthForm({ role, title, subtitle, accentClass }: AuthFormProps) {
-  const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const busy = isLoading || isGoogleLoading;
+
+  useEffect(() => {
+    const failure = new URLSearchParams(window.location.search).get("error");
+    if (failure === "cancelled") {
+      setError("Google sign-in was cancelled. You can try again.");
+    } else if (failure === "connection") {
+      setError("Campus Ride could not reach the account service. Please try again later.");
+    } else if (failure === "callback") {
+      setError("Sign-in could not be completed. Start again from this page and use the same browser.");
+    }
+  }, []);
 
   function getErrorMessage(err: unknown, fallback: string): string {
     if (!(err instanceof Error)) return fallback;
 
-    if (err.message.toLowerCase().includes("failed to fetch")) {
-      return "Could not reach Supabase. Check that NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are set correctly in Vercel, then redeploy.";
+    if (err.name === "AuthRetryableFetchError" || /failed to fetch|fetch failed|networkerror|network request failed/i.test(err.message)) {
+      return "Campus Ride could not reach the account service. Please try again later.";
     }
 
     return err.message;
   }
 
-  function getAuthBaseUrl(): string {
-    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-    if (configured) return configured.replace(/\/$/, "");
-    return window.location.origin;
+  function getCallbackUrl(query: URLSearchParams) {
+    const url = new URL("/auth/callback", window.location.origin);
+    url.search = query.toString();
+    return url.href;
   }
 
   async function handleEmailAuth(e: React.FormEvent) {
@@ -60,8 +71,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
 
     try {
       const supabase = createClient();
-      const baseUrl = getAuthBaseUrl();
-      const redirectTo = `${baseUrl}/auth/callback?role=${role}`;
+      const redirectTo = getCallbackUrl(new URLSearchParams({ role }));
 
       if (isSignUp) {
         const response = await fetch("/api/auth/signup", {
@@ -80,24 +90,14 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
         if (!response.ok) {
           throw new Error(result.error || "Unable to create account.");
         }
-
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) throw signInError;
-        router.push(redirectTo);
-      } else {
-        // Sign in
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) throw signInError;
-        router.push(redirectTo);
       }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (signInError) throw signInError;
+      window.location.assign(redirectTo);
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Authentication failed. Please try again."));
     } finally {
@@ -107,11 +107,11 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
 
   async function handleGoogleAuth() {
     setError(null);
+    setIsGoogleLoading(true);
 
     try {
       const supabase = createClient();
-      const baseUrl = getAuthBaseUrl();
-      const redirectTo = `${baseUrl}/auth/callback?role=${role}`;
+      const redirectTo = getCallbackUrl(new URLSearchParams({ role }));
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo },
@@ -120,6 +120,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
       if (oauthError) throw oauthError;
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Google sign-in failed. Please try again."));
+      setIsGoogleLoading(false);
     }
   }
 
@@ -188,7 +189,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
               placeholder="Enter your name"
               className="w-full rounded-lg border border-white/10 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none transition focus:border-teal-300/50"
               required={isSignUp}
-              disabled={isLoading}
+              disabled={busy}
             />
           </div>
         )}
@@ -205,7 +206,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
             placeholder="Enter your email"
             className="w-full rounded-lg border border-white/10 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none transition focus:border-teal-300/50"
             required
-            disabled={isLoading}
+            disabled={busy}
           />
         </div>
 
@@ -217,6 +218,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
             {!isSignUp && (
               <button
                 type="button"
+                disabled={busy}
                 onClick={async () => {
                   if (!email) {
                     setError("Please enter your email first");
@@ -224,9 +226,8 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
                   }
                   try {
                     const supabase = createClient();
-                    const baseUrl = getAuthBaseUrl();
                     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                      redirectTo: `${baseUrl}/auth/callback?mode=recovery`,
+                      redirectTo: getCallbackUrl(new URLSearchParams({ mode: "recovery" })),
                     });
                     if (error) throw error;
                     setError(null);
@@ -250,7 +251,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
             className="w-full rounded-lg border border-white/10 bg-slate-900/70 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none transition focus:border-teal-300/50"
             required
             minLength={6}
-            disabled={isLoading}
+            disabled={busy}
           />
         </div>
 
@@ -262,7 +263,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={busy}
           className="w-full rounded-lg bg-teal-400 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/30 transition hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isLoading
@@ -284,6 +285,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
       <button
         type="button"
         onClick={handleGoogleAuth}
+        disabled={busy}
         className="w-full rounded-lg border border-white/10 bg-slate-900/70 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800"
       >
         <div className="flex items-center justify-center gap-2">
@@ -305,7 +307,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          Continue with Google
+          {isGoogleLoading ? "Opening Google…" : "Continue with Google"}
         </div>
       </button>
 

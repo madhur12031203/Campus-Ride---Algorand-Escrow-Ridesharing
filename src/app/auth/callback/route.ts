@@ -3,13 +3,27 @@ import { getSupabasePublishableKey, getSupabaseUrl, isSupabaseConfigured } from 
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+function redirectToPath(path: string) {
+  return new NextResponse(null, {
+    status: 307,
+    headers: { Location: path, "Cache-Control": "no-store" },
+  });
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const selectedRole = requestUrl.searchParams.get("role");
   const role = selectedRole === "driver" || selectedRole === "passenger" ? selectedRole : null;
 
-  if (!isSupabaseConfigured()) return NextResponse.redirect(new URL("/login", request.url));
+  const fail = (reason: "callback" | "connection" | "cancelled") => {
+    const login = role === "driver" ? "/login/driver" : "/login/passenger";
+    return redirectToPath(login + "?" + new URLSearchParams({ error: reason }));
+  };
+
+  if (!isSupabaseConfigured()) return fail("connection");
+  const providerError = requestUrl.searchParams.get("error");
+  if (providerError) return fail(providerError === "access_denied" ? "cancelled" : "callback");
   const cookieStore = await cookies();
   const supabase = createServerClient(
     getSupabaseUrl(),
@@ -35,34 +49,35 @@ export async function GET(request: Request) {
   if (code) {
     // Handle OAuth callback
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) return NextResponse.redirect(new URL("/login?error=callback", request.url));
+    if (error) return fail(error.name === "AuthRetryableFetchError" ? "connection" : "callback");
     if (requestUrl.searchParams.get("mode") === "recovery") {
-      return NextResponse.redirect(new URL("/auth/reset-password", request.url));
+      return redirectToPath("/auth/reset-password");
     }
   }
 
   // Get current user (works for both OAuth and email/password)
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (user) {
-    const name =
-      (user.user_metadata?.full_name as string | undefined) ??
-      (user.email ? user.email.split("@")[0] : "Campus Rider");
+  if (!user) return fail(userError?.name === "AuthRetryableFetchError" ? "connection" : "callback");
 
-    // Upsert user profile with role (only update role if provided)
-    const updateData: { id: string; name: string; role?: string } = {
-      id: user.id,
-      name,
-    };
-    
-    if (role) {
-      updateData.role = role;
-    }
+  const name =
+    (user.user_metadata?.full_name as string | undefined) ??
+    (user.email ? user.email.split("@")[0] : "Campus Rider");
 
-    await supabase.from("users").upsert(updateData, { onConflict: "id" });
+  // Upsert user profile with role (only update role if provided)
+  const updateData: { id: string; name: string; role?: string } = {
+    id: user.id,
+    name,
+  };
+
+  if (role) {
+    updateData.role = role;
   }
 
-  return NextResponse.redirect(new URL(user ? "/dashboard" : "/login", request.url));
+  await supabase.from("users").upsert(updateData, { onConflict: "id" });
+
+  return redirectToPath("/dashboard");
 }

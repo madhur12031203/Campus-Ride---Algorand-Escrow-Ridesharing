@@ -30,7 +30,7 @@ Use Node.js 20.9 or newer and npm. Open [the local demo](http://localhost:3000/d
 
 1. **Create a Supabase development project.** On a fresh database, run [`supabase/schema.sql`](supabase/schema.sql) first, then apply the [SQL migrations](supabase/migrations/) in filename order. The base schema creates the user table that the first migration references. The migrations add ride booking, verification, and realtime support.
 2. **Copy the environment template.** Duplicate [`.env.example`](.env.example) as `.env.local` in the repository root. Fill in the settings for the features you plan to use.
-3. **Configure sign-in.** Set `NEXT_PUBLIC_SITE_URL` to the origin you will open in your browser, such as `http://localhost:3000`. Allow the callback URLs used by the app in Supabase. For local testing these are `http://localhost:3000/auth/callback?role=passenger`, `http://localhost:3000/auth/callback?role=driver`, and `http://localhost:3000/auth/callback?mode=recovery`. If you enable Google sign-in, configure Google as a provider in Supabase.
+3. **Configure sign-in.** Set the Supabase Site URL to the production site. Campus Ride builds its callback URL from the domain where sign-in starts, so allow the corresponding URLs for each trusted production, preview, or local domain in Supabase. For local testing these are `http://localhost:3000/auth/callback?role=passenger`, `http://localhost:3000/auth/callback?role=driver`, and `http://localhost:3000/auth/callback?mode=recovery`. If you enable Google sign-in, configure Google as a provider in Supabase.
 4. **Configure optional services.** Follow the [Google Maps setup guide](GOOGLE_MAPS_API_SETUP.md) for autocomplete, geocoding, and route lookup. Follow the [verification storage guide](supabase/STORAGE_SETUP.md) if you want document uploads and manual reviews. The verification bucket must be private.
 5. **Restart the app** with `npm run dev` after changing the environment file.
 
@@ -39,7 +39,6 @@ Use Node.js 20.9 or newer and npm. Open [the local demo](http://localhost:3000/d
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public key for sign-in and database access under Supabase policies |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side account creation and admin verification endpoints. Keep it out of source control and browser code. |
-| `NEXT_PUBLIC_SITE_URL` | Origin for sign-in and password recovery callbacks |
 | `GOOGLE_MAPS_API_KEY` | Server-side route and place lookups for fare comparison and booking |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Browser-accessible key used by the ride screens for location features. Restrict it to your site and the APIs it uses. |
 | `NEXT_PUBLIC_RIDE_ESCROW_APP_ID`, `NEXT_PUBLIC_RIDE_ESCROW_APP_ADDRESS` | App details required to enable the Pera Wallet panel. Check the values against your Testnet deployment. |
@@ -115,8 +114,10 @@ The mock tests cover transaction guards and state transitions. The LocalNet suit
 
 | If you see this | Check this first |
 | --- | --- |
+| Both sign-in methods fail to connect | Confirm the Supabase project is active and its Project URL resolves. Use that project's URL and publishable key together in the Vercel environment for the deployment you are testing, then redeploy. |
+| Google sign-in fails before returning | Enable Google in Supabase and configure the Google OAuth client with the Supabase provider callback URL. See [Supabase's Google setup guide](https://supabase.com/docs/guides/auth/social-sign-in/auth-google). |
 | Account services are not configured | Add the Supabase URL and publishable key to `.env.local`, then restart the app. |
-| Sign-in redirects to the wrong site | Match `NEXT_PUBLIC_SITE_URL` to the browser's origin and check the Supabase callback allowlist. |
+| Sign-in redirects to the wrong site | Check that the callback for the site you opened is on the Supabase redirect allowlist. |
 | Locations or fares are unavailable | Check the Maps keys, enabled APIs, and key restrictions. |
 | A driver cannot see a request | Confirm the ride is waiting, the driver is within the pickup radius, and the realtime migrations are applied. |
 | The wallet panel says setup is incomplete | Check the configured Algorand app ID and address. Payment settlement is separate and remains disabled. |
