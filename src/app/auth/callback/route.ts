@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { getAccountServiceFailure } from "@/lib/supabase/auth-errors";
 import { getSupabasePublishableKey, getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
   const selectedRole = requestUrl.searchParams.get("role");
   const role = selectedRole === "driver" || selectedRole === "passenger" ? selectedRole : null;
 
-  const fail = (reason: "callback" | "connection" | "cancelled") => {
+  const fail = (reason: "callback" | "connection" | "response" | "cancelled") => {
     const login = role === "driver" ? "/login/driver" : "/login/passenger";
     return redirectToPath(login + "?" + new URLSearchParams({ error: reason }));
   };
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
   if (code) {
     // Handle OAuth callback
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) return fail(error.name === "AuthRetryableFetchError" ? "connection" : "callback");
+    if (error) return fail(getAccountServiceFailure(error) ?? "callback");
     if (requestUrl.searchParams.get("mode") === "recovery") {
       return redirectToPath("/auth/reset-password");
     }
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (!user) return fail(userError?.name === "AuthRetryableFetchError" ? "connection" : "callback");
+  if (!user) return fail(getAccountServiceFailure(userError) ?? "callback");
 
   const name =
     (user.user_metadata?.full_name as string | undefined) ??

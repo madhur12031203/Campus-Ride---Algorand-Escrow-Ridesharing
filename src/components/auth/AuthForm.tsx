@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { accountServiceMessages, getAccountServiceFailure } from "@/lib/supabase/auth-errors";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,18 +13,24 @@ type AuthFormProps = {
   accentClass: string;
 };
 
-async function readJsonResponse(response: Response): Promise<{ error?: string }> {
-  const text = await response.text();
-  if (!text.trim()) return {};
-
+async function checkRegistration(response: Response) {
+  let result: { userId?: string; error?: string } | null;
   try {
-    return JSON.parse(text) as { error?: string };
+    result = await response.json();
   } catch {
-    return {
-      error: response.ok
-        ? "Received an invalid response from the server."
-        : "Unable to reach account registration. Please try again later.",
-    };
+    throw new Error(
+      "Account registration did not return a valid response. Reload the sign-in page and try again.",
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      typeof result?.error === "string" ? result.error : "Unable to create account.",
+    );
+  }
+
+  if (typeof result?.userId !== "string" || !result.userId) {
+    throw new Error("Account registration could not be confirmed. Please try again.");
   }
 }
 
@@ -41,8 +48,8 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
     const failure = new URLSearchParams(window.location.search).get("error");
     if (failure === "cancelled") {
       setError("Google sign-in was cancelled. You can try again.");
-    } else if (failure === "connection") {
-      setError("Campus Ride could not reach the account service. Please try again later.");
+    } else if (failure === "connection" || failure === "response") {
+      setError(accountServiceMessages[failure]);
     } else if (failure === "callback") {
       setError("Sign-in could not be completed. Start again from this page and use the same browser.");
     }
@@ -51,11 +58,8 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
   function getErrorMessage(err: unknown, fallback: string): string {
     if (!(err instanceof Error)) return fallback;
 
-    if (err.name === "AuthRetryableFetchError" || /failed to fetch|fetch failed|networkerror|network request failed/i.test(err.message)) {
-      return "Campus Ride could not reach the account service. Please try again later.";
-    }
-
-    return err.message;
+    const failure = getAccountServiceFailure(err);
+    return failure ? accountServiceMessages[failure] : err.message;
   }
 
   function getCallbackUrl(query: URLSearchParams) {
@@ -85,11 +89,7 @@ export default function AuthForm({ role, title, subtitle, accentClass }: AuthFor
           }),
         });
 
-        const result = await readJsonResponse(response);
-
-        if (!response.ok) {
-          throw new Error(result.error || "Unable to create account.");
-        }
+        await checkRegistration(response);
       }
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
