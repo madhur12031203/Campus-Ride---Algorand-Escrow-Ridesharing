@@ -165,3 +165,12 @@ After enabling APIs and setting your key, test:
 4. ✅ Distance calculation works (fare estimation)
 
 If all work, your setup is correct! 🎉
+
+## Accepted ride maps
+
+Apply `supabase/migrations/20260219000008_accepted_ride_driver_location.sql` after the earlier ride migrations. It stores the driver's latest location on the accepted ride and clears it when the driver confirms completion or the ride ends.
+
+- Set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to a browser key with **Maps JavaScript API** enabled. Restrict it to your site origins. Set `NEXT_PUBLIC_GOOGLE_MAP_ID` to your Google map ID for production markers; the preview uses Google's demo map ID if none is set.
+- Set `GOOGLE_MAPS_API_KEY` to a server key with **Routes API** enabled. The app uses one directions request with pickup as the intermediate stop, and shows the two road legs separately.
+- The driver shares their selected location when accepting. **Share live location** starts browser GPS updates for that accepted ride. Leaving the ride desk or stopping sharing ends the watch. The passenger sees the last shared position while the driver is still active.
+- If in-app maps are unavailable, use **Open in Google Maps** for the full road route.
