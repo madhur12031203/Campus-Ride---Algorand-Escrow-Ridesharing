@@ -16,9 +16,24 @@ export type RideMapPoint = {
 export const pickupLegColor = "#2563eb";
 export const dropoffLegColor = "#08765a";
 
+declare global {
+  interface Window {
+    gm_authFailure?: () => void;
+  }
+}
+
 let mapsReady: Promise<void> | undefined;
+let authenticationFailed = false;
+const authenticationFailureListeners = new Set<() => void>();
+
 function loadGoogleMaps(apiKey: string) {
   if (!mapsReady) {
+    const previousHandler = window.gm_authFailure;
+    window.gm_authFailure = () => {
+      authenticationFailed = true;
+      authenticationFailureListeners.forEach((notify) => notify());
+      previousHandler?.();
+    };
     setOptions({ key: apiKey, v: "weekly" });
     mapsReady = Promise.all([
       importLibrary("maps"),
@@ -43,7 +58,7 @@ export default function GoogleRideMap({
 }) {
   const target = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const pickupLat = pickup.lat;
   const pickupLng = pickup.lng;
   const hasDriver = points.some(({ key }) => key === "driver");
@@ -58,9 +73,22 @@ export default function GoogleRideMap({
     let instance: google.maps.Map | undefined;
     const element = target.current;
     if (!element) return;
+
+    const showAuthenticationError = () => {
+      setMap(null);
+      setMapError(
+        "Google Maps could not verify this site. Open the route in Google Maps below.",
+      );
+    };
+    if (authenticationFailed) {
+      showAuthenticationError();
+      return;
+    }
+    authenticationFailureListeners.add(showAuthenticationError);
+
     void loadGoogleMaps(apiKey)
       .then(() => {
-        if (cancelled) return;
+        if (cancelled || authenticationFailed) return;
         instance = new google.maps.Map(element, {
           mapId: process.env.NEXT_PUBLIC_GOOGLE_MAP_ID || "DEMO_MAP_ID",
           center: { lat: pickupLat, lng: pickupLng },
@@ -71,13 +99,17 @@ export default function GoogleRideMap({
           fullscreenControl: false,
           clickableIcons: false,
         });
-        setMap(instance);
+        if (!authenticationFailed) setMap(instance);
       })
       .catch(() => {
-        if (!cancelled) setFailed(true);
+        if (!cancelled && !authenticationFailed) {
+          setMap(null);
+          setMapError("Couldn’t load the map. Open the route in Google Maps below.");
+        }
       });
     return () => {
       cancelled = true;
+      authenticationFailureListeners.delete(showAuthenticationError);
       if (instance) google.maps.event.clearInstanceListeners(instance);
       element.replaceChildren();
     };
@@ -147,14 +179,13 @@ export default function GoogleRideMap({
       <div
         ref={target}
         className="ride-map-google"
+        hidden={Boolean(mapError)}
         role="region"
         aria-label="Map of the driver location, pickup, and drop-off"
       />
       {!map && (
         <p className="ride-map-placeholder" role="status">
-          {failed
-            ? "Couldn’t load the map. You can still open directions below."
-            : "Loading map…"}
+          {mapError ?? "Loading map…"}
         </p>
       )}
     </div>

@@ -28,12 +28,13 @@
 }
 .ride-map-canvas {
   position: relative;
+  height: clamp(230px, 34vw, 350px);
   overflow: hidden;
   border-radius: 10px;
   background: #e6eee6;
 }
 .ride-map-google {
-  height: clamp(230px, 34vw, 350px);
+  height: 100%;
   width: 100%;
 }
 .ride-map-placeholder {
