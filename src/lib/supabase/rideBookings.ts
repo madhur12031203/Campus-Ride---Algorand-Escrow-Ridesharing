@@ -6,6 +6,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { ESCROW_PAYMENTS_ENABLED } from "@/lib/algorand/escrow";
 import type { RideBookingRow } from "@/types";
+import type { Coordinates } from "@/lib/coordinates";
 
 // Create the client when a ride operation runs, so public pages can render before setup.
 const ACTIVE_RIDE_STATUSES: RideBookingRow["status"][] = ["waiting", "accepted"];
@@ -120,6 +121,28 @@ export async function acceptRide(
     throw error;
   }
 
+  return data as RideBookingRow;
+}
+
+export async function updateRideDriverLocation(
+  rideId: string,
+  driverId: string,
+  point: Coordinates,
+): Promise<RideBookingRow> {
+  const { data, error } = await createClient().from("ride_bookings")
+    .update({
+      driver_lat: point.lat,
+      driver_lng: point.lng,
+      driver_location_at: new Date().toISOString(),
+    })
+    .eq("id", rideId)
+    .eq("driver_id", driverId)
+    .eq("status", "accepted")
+    .eq("driver_completed", false)
+    .select("*")
+    .maybeSingle();
+
+  if (error || !data) throw new Error("Couldn’t share your location for this ride.");
   return data as RideBookingRow;
 }
 

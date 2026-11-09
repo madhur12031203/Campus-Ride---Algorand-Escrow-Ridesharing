@@ -42,6 +42,9 @@ export type RideBookingRow = {
   driver_id: string | null; // Set when driver accepts
   passenger_wallet: string | null;
   driver_wallet: string | null;
+  driver_lat?: number | null;
+  driver_lng?: number | null;
+  driver_location_at?: string | null;
   origin_lat: number;
   origin_lng: number;
   destination_lat: number;
