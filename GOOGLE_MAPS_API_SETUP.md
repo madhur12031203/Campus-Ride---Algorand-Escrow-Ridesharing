@@ -174,3 +174,9 @@ Apply `supabase/migrations/20260219000008_accepted_ride_driver_location.sql` aft
 - Set `GOOGLE_MAPS_API_KEY` to a server key with **Routes API** enabled. The app uses one directions request with pickup as the intermediate stop, and shows the two road legs separately.
 - The driver shares their selected location when accepting. **Share live location** starts browser GPS updates for that accepted ride. Leaving the ride desk or stopping sharing ends the watch. The passenger sees the last shared position while the driver is still active.
 - If in-app maps are unavailable, use **Open in Google Maps** for the full road route.
+
+### Troubleshooting on Vercel
+
+1. For a blank map, check your browser console for the [Google Maps error code](https://developers.google.com/maps/documentation/javascript/error-messages). If you see `RefererNotAllowedMapError`, add your site to the browser key's **Websites** list in Google Cloud. Use `https://rift-noida-fullstack.vercel.app/*` for production or the specific preview hostname you are testing. Confirm that **Maps JavaScript API** is enabled and billing is active on the key's Google Cloud project.
+2. If road directions are missing, add `GOOGLE_MAPS_API_KEY` to your Vercel project's environment variables for the deployment you are testing. Use a separate server key and allow **Routes API**. Keep **Places API (New)** and the **Places API** fallback allowed on the server key if you use address search. Website referrer restrictions apply to the browser key. The server key can use an IP restriction if your deployment has a fixed outbound IP.
+3. Redeploy after saving Vercel environment changes. Open an accepted ride, share the driver location, and check that both route legs show a distance and ETA.
