@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "In-app directions are unavailable. Open the route in Google Maps.",
+            "Road directions aren’t configured for this site. Open the route in Google Maps.",
         },
         { status: 503 },
       );
