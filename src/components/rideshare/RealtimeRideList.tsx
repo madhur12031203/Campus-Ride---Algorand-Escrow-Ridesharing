@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ESCROW_PAYMENTS_ENABLED } from "@/lib/algorand/escrow";
 import {
   acceptRide,
@@ -9,8 +9,12 @@ import {
   fetchWaitingRideBookings,
   haversineDistanceKm,
   subscribeToRideBookings,
+  updateRideDriverLocation,
 } from "@/lib/supabase/rideBookings";
+import { coordinates, type Coordinates } from "@/lib/coordinates";
 import type { RideBookingRow } from "@/types";
+import AcceptedRideMap from "./AcceptedRideMap";
+import DriverLocationControls from "./DriverLocationControls";
 
 const MAX_DISTANCE_KM = 8;
 type RideWithDistance = RideBookingRow & { distanceKm: number };
@@ -42,9 +46,15 @@ export default function RealtimeRideList({
   const [history, setHistory] = useState<RideBookingRow[]>([]);
   const [rejectedRideIds, setRejectedRideIds] = useState<string[]>([]);
   const [accepting, setAccepting] = useState(false);
+  const [sharedPosition, setSharedPosition] = useState<{ rideId: string; point: Coordinates } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const requestVersion = useRef(0);
   const hasLocation = driverLat !== null && driverLng !== null;
   const needsWallet = ESCROW_PAYMENTS_ENABLED && !driverWalletAddress;
+  const rememberPosition = useCallback((rideId: string, point: Coordinates) => {
+    setSharedPosition({ rideId, point });
+    setLocationError(null);
+  }, []);
 
   const rides: RideWithDistance[] = driverLat === null || driverLng === null
     ? []
@@ -113,13 +123,24 @@ export default function RealtimeRideList({
 
   async function handleAcceptRide(rideId: string) {
     if (accepting || isBusy || activeRide || needsWallet) return;
+    const selectedPosition = coordinates(driverLat, driverLng);
+    if (!selectedPosition) {
+      setError("Set your location before accepting a ride.");
+      return;
+    }
     setAccepting(true);
     setError(null);
     try {
       const ride = await acceptRide(rideId, driverId, driverWalletAddress);
       rememberRide(ride);
+      rememberPosition(ride.id, selectedPosition);
       setWaitingRides((previous) => previous.filter((item) => item.id !== ride.id));
       onToast("Ride accepted", "success");
+      try {
+        await updateRideDriverLocation(ride.id, driverId, selectedPosition);
+      } catch {
+        setLocationError("The ride was accepted, but your location wasn’t shared with the passenger.");
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to accept ride. It may no longer be available.";
       setError(message);
@@ -173,6 +194,17 @@ export default function RealtimeRideList({
               {activeRide.destination_place_name || "Destination location"}
             </p>
           </div>
+          <AcceptedRideMap
+            key={activeRide.id}
+            ride={activeRide}
+            driverPosition={sharedPosition?.rideId === activeRide.id
+              ? sharedPosition.point
+              : coordinates(activeRide.driver_lat, activeRide.driver_lng) ?? coordinates(driverLat, driverLng)}
+          />
+          {!activeRide.driver_completed && (
+            <DriverLocationControls key={`location-${activeRide.id}`} rideId={activeRide.id} driverId={driverId} onLocation={rememberPosition} disabled={accepting} />
+          )}
+          {locationError && !activeRide.driver_completed && <p role="alert" className="mt-2 text-xs text-amber-800">{locationError}</p>}
           {!activeRide.driver_completed && (
             <button
               type="button"
@@ -194,7 +226,7 @@ export default function RealtimeRideList({
           <div>
             <h2 className="text-xl font-bold text-slate-950">Available Nearby Rides</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Review requests within {MAX_DISTANCE_KM} km, then accept or reject them.
+              Review requests within {MAX_DISTANCE_KM} km. Accepting shares your selected location with the passenger.
             </p>
           </div>
           {rides.length === 0 ? (

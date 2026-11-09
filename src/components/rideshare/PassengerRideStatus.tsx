@@ -6,6 +6,7 @@ import {
   subscribeToMyRideBookings,
 } from "@/lib/supabase/rideBookings";
 import type { RideBookingRow } from "@/types";
+import AcceptedRideMap from "./AcceptedRideMap";
 
 type PassengerRideStatusProps = {
   passengerId: string;
@@ -28,6 +29,14 @@ function mergeRideUpdate(rides: RideBookingRow[], update: RideBookingRow) {
     ride.id === update.id
       ? {
           ...update,
+          ...(!update.driver_completed && ride.driver_location_at &&
+              (!update.driver_location_at || ride.driver_location_at > update.driver_location_at)
+            ? {
+                driver_lat: ride.driver_lat,
+                driver_lng: ride.driver_lng,
+                driver_location_at: ride.driver_location_at,
+              }
+            : {}),
           passenger_completed: ride.passenger_completed || update.passenger_completed,
           driver_completed: ride.driver_completed || update.driver_completed,
         }
@@ -164,6 +173,7 @@ export default function PassengerRideStatus({
               {activeRide.destination_place_name || "Destination location"}
             </p>
           </div>
+          {activeRide.status === "accepted" && <AcceptedRideMap key={activeRide.id} ride={activeRide} />}
           {activeRide.status === "accepted" && !activeRide.passenger_completed && (
               <button
                 type="button"
